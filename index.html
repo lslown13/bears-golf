@@ -632,7 +632,7 @@ function setRating(si,r) {
   var st=sd.sts[si]; var hc=sd.bh[si]||0; var allHit=st.noBalls||hc>=st.balls;
   var btn=document.querySelector('#sc'+si+' .cbtn');
   if(btn&&!st.done){
-    if(allHit&&r){btn.removeAttribute('disabled');btn.textContent='Mark Station Done &#10003;';}
+    if(allHit&&r){btn.removeAttribute('disabled');btn.textContent='Mark Station Done \u2713';}
     else if(!allHit){btn.setAttribute('disabled','');btn.textContent='Hit all '+st.balls+' balls to continue';}
     else{btn.setAttribute('disabled','');btn.textContent='Rate this station to continue';}
   }
