@@ -182,6 +182,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--turf);min-height:100vh;co
 .cm-cancel{flex:1;padding:10px;border-radius:9px;border:1px solid var(--card-border);background:transparent;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);cursor:pointer}
 .cm-save{flex:2;padding:10px;border-radius:9px;border:none;background:var(--grass);color:var(--white);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer}
 .reset-btn{width:100%;padding:10px;border-radius:9px;border:1px solid rgba(224,90,58,.4);background:rgba(224,90,58,.1);font-family:'DM Sans',sans-serif;font-size:13px;color:#f0957a;cursor:pointer;margin-top:7px}
+.st-notes-wrap{padding:0 14px 13px;border-top:1px solid var(--card-border)}
+.st-notes-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;margin-bottom:6px;margin-top:10px}
+.st-notes-ta{width:100%;min-height:60px;padding:9px 11px;border-radius:9px;border:1.5px solid var(--card-border);background:var(--white);font-family:'DM Sans',sans-serif;font-size:12px;color:var(--ink);line-height:1.5;resize:none;outline:none}
+.st-notes-ta:focus{border-color:#b89a2a}
+.st-notes-ta::placeholder{color:var(--muted)}
 .wt-box{background:var(--grass);border:2px solid var(--flag);border-radius:20px;width:100%;max-width:380px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column}
 .wt-hdr{padding:17px 19px 11px;border-bottom:1px solid rgba(255,255,255,.1);flex-shrink:0}
 .wt-title{font-family:'Bebas Neue',sans-serif;font-size:23px;color:var(--flag);letter-spacing:.04em}
@@ -317,7 +322,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--turf);min-height:100vh;co
 
 // ── DATA ──
 var PIN = '2013';
-var COACH_NUM = '8126040343';
 var pinBuf = '';
 var pinDest = '';
 var curPlayer = null;
@@ -512,11 +516,14 @@ function renderSess() {
       else if(s.rating==='easy'){pill='Easy';pc2='fp-easy';}
       else{pill='--';pc2='fp-none';}
       var b = s.balls===0?'drill':(sd.bh[i]||0)+'/'+s.balls+' balls';
-      return '<div class="frep-row">'
+      var stNote = sd.stNotes&&sd.stNotes[i]?sd.stNotes[i]:'';
+      return '<div class="frep-row" style="flex-wrap:wrap">'
         +'<div class="frep-num'+(s.done?' done':'')+'">'+s.n+'</div>'
         +'<div class="frep-title">'+s.title+'</div>'
         +'<span class="frep-balls">'+b+'</span>'
-        +'<span class="frep-pill '+pc2+'">'+pill+'</span></div>';
+        +'<span class="frep-pill '+pc2+'">'+pill+'</span>'
+        +(stNote?'<div style="width:100%;padding:3px 0 2px 29px;font-size:11px;color:rgba(255,255,255,.5);line-height:1.4">'+stNote+'</div>':'')
+        +'</div>';
     }).join('');
     h += '<div class="finish" style="border:2px solid '+pc+'">'
       +'<div class="finish-top"><img src="logo.jpeg" class="finish-logo" alt=""><div class="fi">&#127942;</div>'
@@ -528,10 +535,9 @@ function renderSess() {
       +'<div class="fstat"><div class="fsn" style="color:'+pc+'">'+(mins>0?mins:'--')+'</div><div class="fsl">Min</div></div>'
       +'<div class="fstat"><div class="fsn" style="color:'+pc+'">'+rated+'</div><div class="fsl">Rated</div></div>'
       +'</div><div class="frep-head">Station breakdown</div>'+rows
-      +'<div class="fnotes-wrap"><div class="fnotes-lbl">&#128221; Notes for Coach</div>'
-      +'<textarea class="fnotes-ta" id="noteTA" placeholder="Questions, what felt good or tough..." oninput="saveNote(this.value)">'+sd.note+'</textarea>'
-      +'<div class="fnotes-hint">Add notes then tap the button below to text your results.</div></div>'
-      +'<button class="sms-btn" style="background:'+pc+'" onclick="sendSms()">&#128172; Text Results to Coach</button>'
+      +'<div class="fnotes-wrap"><div class="fnotes-lbl">&#128221; Final notes for coach (optional)</div>'
+      +'<textarea class="fnotes-ta" id="noteTA" placeholder="Any final thoughts, questions, or observations..." oninput="saveNote(this.value)">'+sd.note+'</textarea>'
+      +'<div class="fnotes-hint">Your coach can see all your station notes and ratings live on the dashboard.</div></div>'
       +'</div>';
   } else {
     sd.sts.forEach(function(st,i){h += stCard(st,i,i===sd.cur,st.done,i>sd.cur,pc);});
@@ -567,9 +573,11 @@ function stCard(st,idx,isActive,isDone,isLocked,pc) {
       +'<button class="rbtn r-easy'+(st.rating==='easy'?' sel':'')+'" onclick="setRating('+idx+',\'easy\')"><span class="rem">&#128522;</span>Easy</button>'
       +'</div></div>';
   }
-  var canC = (st.noBalls || hc>=st.balls) && !!st.rating;
-  var ratingMsg = (st.noBalls || hc>=st.balls) && !st.rating ? 'Rate this station to continue' : null;
-  var bl = isDone ? '✓ Completed' : (canC ? 'Mark Station Done ✓' : 'Hit all '+st.balls+' balls to continue');
+  // canC defined below
+  var allBalls = st.noBalls || hc>=st.balls;
+  var hasRating = !!st.rating;
+  var canC = allBalls && hasRating;
+  var bl = isDone ? '✓ Completed' : canC ? 'Mark Station Done ✓' : !allBalls ? 'Hit all '+st.balls+' balls to continue' : 'Rate this station to continue';
   return '<div class="sc'+(isDone?' sc-done':'')+(isLocked?' locked':'')+'" id="sc'+idx+'">'
     +'<div class="sch" onclick="togCard('+idx+')">'
     +'<div class="snb" style="background:'+(isDone?'var(--complete)':pc)+'">'+(isDone?'✓':st.n)+'</div>'
@@ -581,7 +589,7 @@ function stCard(st,idx,isActive,isDone,isLocked,pc) {
     +'<div class="chips"><span class="chip chip-b" style="background:'+(isDone?'var(--complete)':'var(--ink)')+'">'+
     (st.balls===0?'Drill':st.balls+' balls')+'</span>'
     +st.tags.map(function(t){return '<span class="chip chip-f">'+t+'</span>';}).join('')+'</div>'
-    +cn+bh+rh
+    +cn+bh+rh+nh
     +'<button class="cbtn'+(isDone?' done-btn':'')+'" style="background:'+(isDone?'var(--complete)':pc)+'" '+
     (!isDone&&!canC?'disabled':'')+' onclick="completeStation('+idx+')">'+bl+'</button>'
     +'</div></div>';
@@ -647,19 +655,18 @@ function saveNote(v) {
   }
 }
 
+function saveStNote(si, v) {
+  if (!curPlayer) return;
+  var sd = sessions[curPlayer.id];
+  if (!sd.stNotes) sd.stNotes = {};
+  sd.stNotes[si] = v;
+  fbSaveSession(curPlayer.id);
+  localStorage.setItem('bg_sessions', JSON.stringify(sessions));
+}
+
 function goBack() { curPlayer=null; showHdr(false); renderSelect(); showScreen('selectScreen'); }
 
-function sendSms() {
-  var p=curPlayer, sd=sessions[p.id];
-  var rl=function(r){return r==='hard'?'Difficult':r==='mid'?'So-so':r==='easy'?'Easy':'--';};
-  var lines=['Range Session: '+p.name+' ('+(p.plan==='adv'?'Advanced':'Developing')+' Plan)','Balls: '+sd.bh.reduce(function(a,b){return a+b;},0),''];
-  sd.sts.forEach(function(s,i){
-    var b=s.balls===0?'drill':(sd.bh[i]||0)+'/'+s.balls+' balls';
-    lines.push('S'+s.n+' '+s.title.split('--')[0].split('(')[0].trim()+'['+b+'] '+rl(s.rating));
-  });
-  if(sd.note){lines.push('');lines.push('Notes: '+sd.note);}
-  window.location.href='sms:'+COACH_NUM+'?body='+encodeURIComponent(lines.join('\n'));
-}
+
 
 // ── COACH SETUP ──
 function openSetup() {
@@ -809,8 +816,11 @@ function dashCard(p) {
     var rl=s.rating==='hard'?'Hard':s.rating==='mid'?'So-so':s.rating==='easy'?'Easy':'--';
     var bh=sd.bh?sd.bh[i]||0:0;
     var bg=s.done?'background:var(--complete);color:#fff':'background:'+color+';color:var(--ink)';
+    var stNote=sd.stNotes&&sd.stNotes[i]?sd.stNotes[i]:'';
     return '<div class="csr"><div class="csn" style="'+bg+'">'+(s.done?'✓':s.n)+'</div>'
-      +'<div class="csname">'+s.title.split('--')[0].split('(')[0].trim()+'</div>'
+      +'<div style="flex:1;min-width:0"><div class="csname">'+s.title.split('--')[0].split('(')[0].trim()+'</div>'
+      +(stNote?'<div style="font-size:11px;color:rgba(255,255,255,.45);margin-top:2px;white-space:pre-wrap">'+stNote+'</div>':'')
+      +'</div>'
       +'<span class="csballs">'+(s.balls===0?'drill':bh+'/'+s.balls)+'</span>'
       +'<span class="rp '+rc+'">'+rl+'</span></div>';
   }).join('');
