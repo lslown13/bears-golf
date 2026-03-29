@@ -592,7 +592,7 @@ function stCard(st,idx,isActive,isDone,isLocked,pc) {
   var bl = isDone ? '\u2713 Completed' : canC ? 'Mark Station Done \u2713' : !allBalls ? 'Hit all '+st.balls+' balls to continue' : 'Rate this station to continue';
   return '<div class="sc'+(isDone?' sc-done':'')+(isLocked?' locked':'')+'" id="sc'+idx+'">'
     +'<div class="sch" onclick="togCard('+idx+')">'
-    +'<div class="snb" style="background:'+(isDone?'var(--complete)':pc)+'">'+(isDone?'&#10003;':st.n)+'</div>'
+    +'<div class="snb" style="background:'+(isDone?'var(--complete)':pc)+'">'+(isDone?'\u2713':st.n)+'</div>'
     +'<div style="flex:1"><div class="sc-title">'+st.title+'</div>'
     +'<div class="sc-sub">'+(st.balls===0?'Drill only':st.balls+' balls')+' - '+st.tags.slice(0,2).join(' - ')+'</div></div>'
     +'<div class="sc-chk">'+(isDone?'&#9989;':isActive?'&#9660;':'&#9654;')+'</div></div>'
