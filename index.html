@@ -767,20 +767,14 @@ function renderPlayerScreen() {
 
 // openSetup renders from current (already synced) data
 function openSetup() {
-  showOverlay('setupOverlay');
-  document.getElementById('peRows').innerHTML = '<div style="padding:10px;font-size:13px;color:var(--muted)">Loading...</div>';
-  function doRender() {
+  try {
     document.getElementById('cm-snote').value = cfg.sessionNote||'';
     document.getElementById('cm-cnote').value = cfg.courseNote||'';
-    buildPeRows(); buildBallRows();
-  }
-  if (fbReady) {
-    doRender();
-  } else {
-    var t = setInterval(function() {
-      if (fbReady) { clearInterval(t); doRender(); }
-    }, 100);
-    setTimeout(function() { clearInterval(t); doRender(); }, 4000);
+    buildPeRows();
+    buildBallRows();
+    showOverlay('setupOverlay');
+  } catch(e) {
+    alert('Setup error: ' + e.message);
   }
 }
 
