@@ -226,7 +226,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--turf);min-height:100vh;co
 
 <div class="overlay" id="setupOverlay">
   <div class="cm-box">
-    <div class="cm-hdr"><div class="cm-title">Coach Setup</div><div class="cm-sub">Saves to this device</div></div>
+    <div class="cm-hdr"><div class="cm-title">Coach Setup</div><div class="cm-sub">Saves to cloud</div></div>
     <div class="cm-body">
       <div class="cm-sec">
         <span class="cm-lbl">Players &amp; plan assignments</span>
@@ -311,25 +311,65 @@ body{font-family:'DM Sans',sans-serif;background:var(--turf);min-height:100vh;co
   <div class="screen" id="dashScreen"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-database-compat.js"></script>
 <script>
+
+// ── DATA ──
 var PIN = '2013';
 var COACH_NUM = '8126040343';
 var pinBuf = '';
 var pinDest = '';
 var curPlayer = null;
+var dashRef = null;
 
 var roster = JSON.parse(localStorage.getItem('bg_roster') || '[]');
 var cfg = JSON.parse(localStorage.getItem('bg_cfg') || '{"sessionNote":"","courseNote":"","advBalls":[8,10,10,10,6,6]}');
 var sessions = JSON.parse(localStorage.getItem('bg_sessions') || '{}');
 
-function save() {
-  localStorage.setItem('bg_roster', JSON.stringify(roster));
-  localStorage.setItem('bg_cfg', JSON.stringify(cfg));
-  localStorage.setItem('bg_sessions', JSON.stringify(sessions));
+// ── FIREBASE ──
+var FB = null;
+try {
+  firebase.initializeApp({
+    apiKey:"AIzaSyADNKgv2CmT8yHwmdHiydbWQTfD-STcr_Y",
+    authDomain:"bears-golf.firebaseapp.com",
+    databaseURL:"https://bears-golf-default-rtdb.firebaseio.com",
+    projectId:"bears-golf",
+    storageBucket:"bears-golf.firebasestorage.app",
+    messagingSenderId:"500615931144",
+    appId:"1:500615931144:web:4f0fe244624e5e08dbb8bd"
+  });
+  FB = firebase.database();
+  // Keep config in sync
+  FB.ref('config').on('value', function(snap) {
+    if (snap.exists()) {
+      var d = snap.val();
+      if (d.roster) { roster = d.roster; localStorage.setItem('bg_roster', JSON.stringify(roster)); }
+      if (d.coachCfg) { cfg = Object.assign(cfg, d.coachCfg); localStorage.setItem('bg_cfg', JSON.stringify(cfg)); }
+    }
+  });
+  // Keep sessions in sync
+  FB.ref('sessions').on('value', function(snap) {
+    sessions = snap.exists() ? (snap.val() || {}) : {};
+    localStorage.setItem('bg_sessions', JSON.stringify(sessions));
+  });
+} catch(e) {
+  console.warn('Firebase unavailable:', e);
 }
 
+function fbSaveConfig() {
+  if (FB) FB.ref('config').set({roster: roster, coachCfg: cfg});
+}
+function fbSaveSession(id) {
+  if (FB) FB.ref('sessions/' + id).set(sessions[id]);
+}
+function fbResetSessions() {
+  if (FB) FB.ref('sessions').remove();
+}
+
+// ── STATION DATA ──
 var ADV = [
-  {n:1,title:"Warm-up — wedge (60–80 yd)",desc:"Loose, relaxed half swings. Focus on contact quality and tempo, not power.",balls:8,tags:["tempo","contact"]},
+  {n:1,title:"Warm-up — wedge (60-80 yd)",desc:"Loose, relaxed half swings. Focus on contact quality and tempo, not power.",balls:8,tags:["tempo","contact"]},
   {n:2,title:"Short iron — target work",desc:"7 or 8 iron. Pick a specific flag or yardage marker. Alternate between two targets. Full swings at ~75% effort.",balls:10,tags:["target alignment","ball flight"]},
   {n:3,title:"Mid iron — long approach",desc:"5 or 6 iron. Simulate a long approach down the fairway. Focus on square face at impact and balanced finish.",balls:10,tags:["straight target","square face"]},
   {n:4,title:"Fairway wood or hybrid",desc:"Sweep vs. digging. Brush the turf cleanly without a divot. Build confidence off the deck.",balls:10,tags:["clean contact","launch angle"]},
@@ -341,51 +381,57 @@ var DEV = [
   {n:2,title:"9-iron — tee it up",desc:"Ball on a low tee. Make contact and send it forward. Build confidence.",balls:10,tags:["tee height","make contact"]},
   {n:3,title:"9-iron — off the turf",desc:"Remove the tee. Brush the grass. One swing thought: eyes on the ball through impact.",balls:10,tags:["eyes on ball","brush the grass"]},
   {n:4,title:"7-iron — longer club",desc:"Tee first (5 balls), then off turf (10 balls). Feel the difference in distance.",balls:15,tags:["tee first","1 swing thought"]},
-  {n:5,title:"Free choice — your best club",desc:"Pick whichever club felt best today. Pick a target and finish strong.",balls:15,tags:["player's choice","finish strong"]}
+  {n:5,title:"Free choice — your best club",desc:"Pick whichever club felt best today. Pick a target and finish strong.",balls:15,tags:["player choice","finish strong"]}
 ];
 
+// ── HELPERS ──
 function ini(n) { return n.trim().split(' ').filter(Boolean).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'?'; }
-
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
-  document.getElementById(id).classList.add('active');
-}
+function showScreen(id) { document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');}); document.getElementById(id).classList.add('active'); }
 function showHdr(v) { document.getElementById('hdr').style.display = v ? 'block' : 'none'; }
-function showOverlay(id) { document.getElementById(id).classList.add('show'); }
-function hideOverlay(id) { document.getElementById(id).classList.remove('show'); }
+function showOv(id) { document.getElementById(id).classList.add('show'); }
+function hideOv(id) { document.getElementById(id).classList.remove('show'); }
+function openWalk() { showOv('walkOverlay'); }
+function closeWalk() { hideOv('walkOverlay'); }
 
-// PIN
+// ── PIN ──
 function openPin(dest) {
-  pinDest = dest; pinBuf = '';
+  pinDest = dest;
+  pinBuf = '';
   updDots();
   document.getElementById('pinErr').textContent = '';
-  showOverlay('pinOverlay');
+  showOv('pinOverlay');
 }
-function pinCancel() { hideOverlay('pinOverlay'); pinBuf = ''; pinDest = ''; }
+function pinCancel() { hideOv('pinOverlay'); pinBuf = ''; pinDest = ''; }
 function pinKey(d) {
   if (pinBuf.length >= 4) return;
-  pinBuf += d; updDots();
+  pinBuf += d;
+  updDots();
   if (pinBuf.length === 4) {
     setTimeout(function() {
       if (pinBuf === PIN) {
-        hideOverlay('pinOverlay');
+        hideOv('pinOverlay');
         var dest = pinDest;
-        pinBuf = ''; pinDest = '';
-        if (dest === 'setup') { openSetup(); }
-        else if (dest === 'dash') { openDash(); }
-        
+        pinBuf = '';
+        pinDest = '';
+        if (dest === 'setup') openSetup();
+        else if (dest === 'dash') openDash();
       } else {
         document.getElementById('pinErr').textContent = 'Incorrect PIN — try again';
-        pinBuf = ''; updDots();
+        pinBuf = '';
+        updDots();
       }
     }, 200);
   }
 }
 function pinDel() { pinBuf = pinBuf.slice(0,-1); updDots(); document.getElementById('pinErr').textContent = ''; }
-function updDots() { for(var i=0;i<4;i++) document.getElementById('pd'+i).classList.toggle('on', i<pinBuf.length); }
+function updDots() { for (var i=0;i<4;i++) document.getElementById('pd'+i).classList.toggle('on', i<pinBuf.length); }
 
-// PLAYER SELECT
-// goSelect defined in Firebase section below
+// ── PLAYER SELECT ──
+function goSelect() {
+  showHdr(false);
+  showScreen('selectScreen');
+  renderSelect();
+}
 
 function renderSelect() {
   var adv = roster.filter(function(p){return p.plan==='adv';});
@@ -393,6 +439,7 @@ function renderSelect() {
   var h = '<div class="sel-title">Select Your Name</div><div class="sel-sub">Tap your name to open your session</div>';
   if (adv.length) { h += '<div class="grp-lbl adv">&#9971; Advanced Plan</div>'; adv.forEach(function(p){h+=pBtn(p);}); }
   if (dev.length) { h += '<div class="grp-lbl dev">&#9971; Developing Plan</div>'; dev.forEach(function(p){h+=pBtn(p);}); }
+  if (!roster.length) h = '<div class="no-players">No players set up yet.<br>Ask your coach to add players<br>in Coach Setup.</div>';
   document.getElementById('selectScreen').innerHTML = h;
 }
 
@@ -404,12 +451,12 @@ function pBtn(p) {
   var pct = tot>0 ? Math.round(hit/tot*100) : 0;
   var done = sd.done || false;
   var color = p.plan==='adv' ? 'var(--adv)' : 'var(--dev)';
-  return '<button class="pbtn" onclick="openPlayer(\''+p.id+'\')">'+
-    '<div class="pav" style="background:'+color+';color:var(--ink)">'+ini(p.name)+'</div>'+
-    '<div style="flex:1"><div class="pname">'+p.name+'</div>'+
-    '<div class="pstat">'+(done?'Session complete':hit>0?'In progress · '+pct+'%':'Not started')+'</div></div>'+
-    (done?'<span class="done-badge">Done</span>':'<span style="font-size:11px;color:rgba(255,255,255,.4)">'+pct+'%</span>')+
-    '</button>';
+  return '<button class="pbtn" onclick="openPlayer(\''+p.id+'\')">'
+    +'<div class="pav" style="background:'+color+';color:var(--ink)">'+ini(p.name)+'</div>'
+    +'<div style="flex:1"><div class="pname">'+p.name+'</div>'
+    +'<div class="pstat">'+(done?'Session complete':hit>0?'In progress - '+pct+'%':'Not started')+'</div></div>'
+    +(done?'<span class="done-badge">Done</span>':'<span style="font-size:11px;color:rgba(255,255,255,.4)">'+pct+'%</span>')
+    +'</button>';
 }
 
 function openPlayer(id) {
@@ -420,18 +467,23 @@ function openPlayer(id) {
     var sts = JSON.parse(JSON.stringify(p.plan==='adv' ? ADV : DEV));
     if (p.plan==='adv' && cfg.advBalls) sts.forEach(function(s,i){if(cfg.advBalls[i]!==undefined)s.balls=cfg.advBalls[i];});
     sessions[id] = {sts:sts, cur:0, done:false, t0:Date.now(), t1:null, note:'', bh:sts.map(function(){return 0;})};
-    save();
+    fbSaveSession(id);
+    localStorage.setItem('bg_sessions', JSON.stringify(sessions));
   }
   var pc = p.plan==='adv' ? 'var(--adv)' : 'var(--dev)';
   document.getElementById('hdrPlan').textContent = (p.plan==='adv'?'Advanced':'Developing')+' Plan';
   document.getElementById('hdrProg').style.background = pc;
   document.getElementById('hdrBalls').style.color = pc;
-  showHdr(true); updHdr(); renderSess(); showScreen('sessScreen');
+  showHdr(true);
+  updHdr();
+  renderSess();
+  showScreen('sessScreen');
 }
 
 function updHdr() {
   if (!curPlayer) return;
-  var sd = sessions[curPlayer.id]; if(!sd) return;
+  var sd = sessions[curPlayer.id];
+  if (!sd) return;
   var tot = sd.sts.reduce(function(a,s){return a+s.balls;},0);
   var hit = sd.bh.reduce(function(a,b){return a+b;},0);
   var dn = sd.sts.filter(function(s){return s.done;}).length;
@@ -445,10 +497,10 @@ function renderSess() {
   var tot = sd.sts.reduce(function(a,s){return a+s.balls;},0);
   var hit = sd.bh.reduce(function(a,b){return a+b;},0);
   var pc = p.plan==='adv' ? 'var(--adv)' : 'var(--dev)';
-  var h = '<button class="back-btn" onclick="goBack()">← All Players</button>'+
-    '<div class="sess-hdr"><div class="sess-av" style="background:'+pc+'">'+ini(p.name)+'</div>'+
-    '<div><div class="sess-name">'+p.name+'</div>'+
-    '<div class="sess-plan" style="color:'+pc+'">'+(p.plan==='adv'?'Advanced':'Developing')+' Plan · '+hit+'/'+tot+' balls</div></div></div>';
+  var h = '<button class="back-btn" onclick="goBack()">&#8592; All Players</button>'
+    +'<div class="sess-hdr"><div class="sess-av" style="background:'+pc+'">'+ini(p.name)+'</div>'
+    +'<div><div class="sess-name">'+p.name+'</div>'
+    +'<div class="sess-plan" style="color:'+pc+'">'+(p.plan==='adv'?'Advanced':'Developing')+' Plan - '+hit+'/'+tot+' balls</div></div></div>';
   if (cfg.sessionNote) h += '<div class="sess-note"><span class="snote-ey">Coach note</span>'+cfg.sessionNote+'</div>';
   if (sd.done) {
     var mins = sd.t1 ? Math.round((sd.t1-sd.t0)/60000) : 0;
@@ -458,29 +510,29 @@ function renderSess() {
       if(s.rating==='hard'){pill='Difficult';pc2='fp-hard';}
       else if(s.rating==='mid'){pill='So-so';pc2='fp-mid';}
       else if(s.rating==='easy'){pill='Easy';pc2='fp-easy';}
-      else{pill='—';pc2='fp-none';}
+      else{pill='--';pc2='fp-none';}
       var b = s.balls===0?'drill':(sd.bh[i]||0)+'/'+s.balls+' balls';
-      return '<div class="frep-row">'+
-        '<div class="frep-num'+(s.done?' done':'')+'">'+s.n+'</div>'+
-        '<div class="frep-title">'+s.title+'</div>'+
-        '<span class="frep-balls">'+b+'</span>'+
-        '<span class="frep-pill '+pc2+'">'+pill+'</span></div>';
+      return '<div class="frep-row">'
+        +'<div class="frep-num'+(s.done?' done':'')+'">'+s.n+'</div>'
+        +'<div class="frep-title">'+s.title+'</div>'
+        +'<span class="frep-balls">'+b+'</span>'
+        +'<span class="frep-pill '+pc2+'">'+pill+'</span></div>';
     }).join('');
-    h += '<div class="finish" style="border:2px solid '+pc+'">'+
-      '<div class="finish-top"><img src="logo.jpeg" class="finish-logo" alt=""><div class="fi">🏆</div>'+
-      '<div class="ft" style="color:'+pc+'">Session Complete!</div>'+
-      '<div class="fsub">Great work today, '+p.name.split(' ')[0]+'.</div></div>'+
-      '<div class="fstats">'+
-      '<div class="fstat"><div class="fsn" style="color:'+pc+'">'+hit+'</div><div class="fsl">Balls</div></div>'+
-      '<div class="fstat"><div class="fsn" style="color:'+pc+'">'+sd.sts.length+'</div><div class="fsl">Stations</div></div>'+
-      '<div class="fstat"><div class="fsn" style="color:'+pc+'">'+(mins>0?mins:'—')+'</div><div class="fsl">Min</div></div>'+
-      '<div class="fstat"><div class="fsn" style="color:'+pc+'">'+rated+'</div><div class="fsl">Rated</div></div>'+
-      '</div><div class="frep-head">Station breakdown</div>'+rows+
-      '<div class="fnotes-wrap"><div class="fnotes-lbl">📝 Notes for Coach</div>'+
-      '<textarea class="fnotes-ta" id="noteTA" placeholder="Questions, what felt good or tough..." oninput="saveNote(this.value)">'+sd.note+'</textarea>'+
-      '<div class="fnotes-hint">Add notes then tap the button below to text your results.</div></div>'+
-      '<button class="sms-btn" style="background:'+pc+'" onclick="sendSms()">💬 Text Results to Coach</button>'+
-      '</div>';
+    h += '<div class="finish" style="border:2px solid '+pc+'">'
+      +'<div class="finish-top"><img src="logo.jpeg" class="finish-logo" alt=""><div class="fi">&#127942;</div>'
+      +'<div class="ft" style="color:'+pc+'">Session Complete!</div>'
+      +'<div class="fsub">Great work today, '+p.name.split(' ')[0]+'.</div></div>'
+      +'<div class="fstats">'
+      +'<div class="fstat"><div class="fsn" style="color:'+pc+'">'+hit+'</div><div class="fsl">Balls</div></div>'
+      +'<div class="fstat"><div class="fsn" style="color:'+pc+'">'+sd.sts.length+'</div><div class="fsl">Stations</div></div>'
+      +'<div class="fstat"><div class="fsn" style="color:'+pc+'">'+(mins>0?mins:'--')+'</div><div class="fsl">Min</div></div>'
+      +'<div class="fstat"><div class="fsn" style="color:'+pc+'">'+rated+'</div><div class="fsl">Rated</div></div>'
+      +'</div><div class="frep-head">Station breakdown</div>'+rows
+      +'<div class="fnotes-wrap"><div class="fnotes-lbl">&#128221; Notes for Coach</div>'
+      +'<textarea class="fnotes-ta" id="noteTA" placeholder="Questions, what felt good or tough..." oninput="saveNote(this.value)">'+sd.note+'</textarea>'
+      +'<div class="fnotes-hint">Add notes then tap the button below to text your results.</div></div>'
+      +'<button class="sms-btn" style="background:'+pc+'" onclick="sendSms()">&#128172; Text Results to Coach</button>'
+      +'</div>';
   } else {
     sd.sts.forEach(function(st,i){h += stCard(st,i,i===sd.cur,st.done,i>sd.cur,pc);});
   }
@@ -492,68 +544,72 @@ function stCard(st,idx,isActive,isDone,isLocked,pc) {
   var cn = '';
   if (st.courseNote) {
     var sv = cfg.courseNote || '';
-    cn = '<div class="cn-wrap"><div class="cn-ey">📋 Coach instructions</div>'+
-      '<div class="cn-box'+(sv?'':' empty')+'">'+(sv||'No instructions yet — check with your coach.')+'</div></div>';
+    cn = '<div class="cn-wrap"><div class="cn-ey">&#128203; Coach instructions</div>'
+      +'<div class="cn-box'+(sv?'':' empty')+'">'+(sv||'No instructions yet - check with your coach.')+'</div></div>';
   }
   var sd = sessions[curPlayer.id];
   var hc = sd.bh[idx]||0;
   var bh = '';
   if (!st.noBalls && st.balls>0) {
-    bh = '<div class="bt"><div class="bt-lbl">Tap each ball as you hit it — '+st.balls+' total</div><div class="bgrid">';
+    bh = '<div class="bt"><div class="bt-lbl">Tap each ball as you hit it - '+st.balls+' total</div><div class="bgrid">';
     for (var b=0;b<st.balls;b++) {
-      bh += '<div class="ball'+(b<hc?' hit':'')+'" style="'+(b<hc?'background:'+pc+';border-color:transparent':'')+'" onclick="hitBall('+idx+','+b+')" id="bl'+idx+'_'+b+'">'+( b+1)+'</div>';
+      bh += '<div class="ball'+(b<hc?' hit':'')+'" style="'+(b<hc?'background:'+pc+';border-color:transparent':'')+'" onclick="hitBall('+idx+','+b+')" id="bl'+idx+'_'+b+'">'+(b+1)+'</div>';
     }
     bh += '</div></div>';
   } else if (st.noBalls) {
-    bh = '<div style="padding:4px 14px 10px;font-size:12px;color:var(--muted)">No balls — work through the drill then mark done.</div>';
+    bh = '<div style="padding:4px 14px 10px;font-size:12px;color:var(--muted)">No balls - work through the drill then mark done.</div>';
   }
   var rh = '';
   if (!isLocked) {
-    rh = '<div class="rsec"><div class="rlbl">How did this station feel?</div><div class="rbtns">'+
-      '<button class="rbtn r-hard'+(st.rating==='hard'?' sel':'')+'" onclick="setRating('+idx+',\'hard\')"><span class="rem">😤</span>Difficult</button>'+
-      '<button class="rbtn r-mid'+(st.rating==='mid'?' sel':'')+'" onclick="setRating('+idx+',\'mid\')"><span class="rem">😐</span>So-so</button>'+
-      '<button class="rbtn r-easy'+(st.rating==='easy'?' sel':'')+'" onclick="setRating('+idx+',\'easy\')"><span class="rem">😊</span>Easy</button>'+
-      '</div></div>';
+    rh = '<div class="rsec"><div class="rlbl">How did this station feel?</div><div class="rbtns">'
+      +'<button class="rbtn r-hard'+(st.rating==='hard'?' sel':'')+'" onclick="setRating('+idx+',\'hard\')"><span class="rem">&#128548;</span>Difficult</button>'
+      +'<button class="rbtn r-mid'+(st.rating==='mid'?' sel':'')+'" onclick="setRating('+idx+',\'mid\')"><span class="rem">&#128528;</span>So-so</button>'
+      +'<button class="rbtn r-easy'+(st.rating==='easy'?' sel':'')+'" onclick="setRating('+idx+',\'easy\')"><span class="rem">&#128522;</span>Easy</button>'
+      +'</div></div>';
   }
   var canC = st.noBalls || hc>=st.balls;
-  var bl = isDone ? '✓ Completed' : (canC ? 'Mark Station Done ✓' : 'Hit all '+st.balls+' balls to continue');
-  return '<div class="sc'+(isDone?' sc-done':'')+(isLocked?' locked':'')+'" id="sc'+idx+'">'+
-    '<div class="sch" onclick="togCard('+idx+')">'+
-    '<div class="snb" style="background:'+(isDone?'var(--complete)':pc)+'">'+(isDone?'✓':st.n)+'</div>'+
-    '<div style="flex:1"><div class="sc-title">'+st.title+'</div>'+
-    '<div class="sc-sub">'+(st.balls===0?'Drill only':st.balls+' balls')+' · '+st.tags.slice(0,2).join(' · ')+'</div></div>'+
-    '<div class="sc-chk">'+(isDone?'✅':isActive?'▼':'▶')+'</div></div>'+
-    '<div class="sbody" id="sb'+idx+'">'+
-    '<div class="sdesc">'+st.desc+'</div>'+
-    '<div class="chips"><span class="chip chip-b" style="background:'+(isDone?'var(--complete)':'var(--ink)')+'">'+
-    (st.balls===0?'Drill':st.balls+' balls')+'</span>'+
-    st.tags.map(function(t){return '<span class="chip chip-f">'+t+'</span>';}).join('')+'</div>'+
-    cn+bh+rh+
-    '<button class="cbtn'+(isDone?' done-btn':'')+'" style="background:'+(isDone?'var(--complete)':pc)+'" '+
-    (!isDone&&!canC?'disabled':'')+' onclick="completeStation('+idx+')">'+bl+'</button>'+
-    '</div></div>';
+  var bl = isDone ? '&#10003; Completed' : (canC ? 'Mark Station Done &#10003;' : 'Hit all '+st.balls+' balls to continue');
+  return '<div class="sc'+(isDone?' sc-done':'')+(isLocked?' locked':'')+'" id="sc'+idx+'">'
+    +'<div class="sch" onclick="togCard('+idx+')">'
+    +'<div class="snb" style="background:'+(isDone?'var(--complete)':pc)+'">'+(isDone?'&#10003;':st.n)+'</div>'
+    +'<div style="flex:1"><div class="sc-title">'+st.title+'</div>'
+    +'<div class="sc-sub">'+(st.balls===0?'Drill only':st.balls+' balls')+' - '+st.tags.slice(0,2).join(' - ')+'</div></div>'
+    +'<div class="sc-chk">'+(isDone?'&#9989;':isActive?'&#9660;':'&#9654;')+'</div></div>'
+    +'<div class="sbody" id="sb'+idx+'">'
+    +'<div class="sdesc">'+st.desc+'</div>'
+    +'<div class="chips"><span class="chip chip-b" style="background:'+(isDone?'var(--complete)':'var(--ink)')+'">'+
+    (st.balls===0?'Drill':st.balls+' balls')+'</span>'
+    +st.tags.map(function(t){return '<span class="chip chip-f">'+t+'</span>';}).join('')+'</div>'
+    +cn+bh+rh
+    +'<button class="cbtn'+(isDone?' done-btn':'')+'" style="background:'+(isDone?'var(--complete)':pc)+'" '+
+    (!isDone&&!canC?'disabled':'')+' onclick="completeStation('+idx+')">'+bl+'</button>'
+    +'</div></div>';
 }
 
 function togCard(idx) { var b=document.getElementById('sb'+idx); if(b) b.classList.toggle('open'); }
 
 function hitBall(si,bi) {
-  var sd=sessions[curPlayer.id], st=sd.sts[si]; if(st.done) return;
+  var sd=sessions[curPlayer.id], st=sd.sts[si];
+  if(st.done) return;
   var hc=sd.bh[si]||0;
   if(bi===hc-1) sd.bh[si]--;
   else if(bi===hc) sd.bh[si]++;
-  save();
+  fbSaveSession(curPlayer.id);
+  localStorage.setItem('bg_sessions', JSON.stringify(sessions));
   var pc = curPlayer.plan==='adv'?'var(--adv)':'var(--dev)';
   var newHc = sd.bh[si];
   for(var b=0;b<st.balls;b++){
     var el=document.getElementById('bl'+si+'_'+b);
     if(el){el.classList.toggle('hit',b<newHc);el.style.background=b<newHc?pc:'';el.style.borderColor=b<newHc?'transparent':'';}
   }
-  if(newHc>=st.balls){var btn=document.querySelector('#sc'+si+' .cbtn');if(btn){btn.removeAttribute('disabled');btn.textContent='Mark Station Done ✓';}}
+  if(newHc>=st.balls){var btn=document.querySelector('#sc'+si+' .cbtn');if(btn){btn.removeAttribute('disabled');btn.textContent='Mark Station Done &#10003;';}}
   updHdr();
 }
 
 function setRating(si,r) {
-  sessions[curPlayer.id].sts[si].rating=r; save();
+  sessions[curPlayer.id].sts[si].rating=r;
+  fbSaveSession(curPlayer.id);
+  localStorage.setItem('bg_sessions', JSON.stringify(sessions));
   document.querySelectorAll('#sc'+si+' .rbtn').forEach(function(b){
     b.classList.remove('sel');
     if((r==='hard'&&b.classList.contains('r-hard'))||(r==='mid'&&b.classList.contains('r-mid'))||(r==='easy'&&b.classList.contains('r-easy'))) b.classList.add('sel');
@@ -561,44 +617,168 @@ function setRating(si,r) {
 }
 
 function completeStation(si) {
-  var sd=sessions[curPlayer.id], st=sd.sts[si]; if(st.done) return;
-  st.done=true; if(si===sd.cur) sd.cur++;
+  var sd=sessions[curPlayer.id], st=sd.sts[si];
+  if(st.done) return;
+  st.done=true;
+  if(si===sd.cur) sd.cur++;
   if(sd.cur>=sd.sts.length){sd.done=true;sd.t1=Date.now();}
-  save(); updHdr(); renderSess();
+  fbSaveSession(curPlayer.id);
+  localStorage.setItem('bg_sessions', JSON.stringify(sessions));
+  updHdr(); renderSess();
 }
 
-function saveNote(v) { if(curPlayer){sessions[curPlayer.id].note=v;save();} }
+function saveNote(v) {
+  if(curPlayer){
+    sessions[curPlayer.id].note=v;
+    fbSaveSession(curPlayer.id);
+    localStorage.setItem('bg_sessions', JSON.stringify(sessions));
+  }
+}
+
 function goBack() { curPlayer=null; showHdr(false); renderSelect(); showScreen('selectScreen'); }
 
 function sendSms() {
   var p=curPlayer, sd=sessions[p.id];
   var rl=function(r){return r==='hard'?'Difficult':r==='mid'?'So-so':r==='easy'?'Easy':'--';};
   var lines=['Range Session: '+p.name+' ('+(p.plan==='adv'?'Advanced':'Developing')+' Plan)','Balls: '+sd.bh.reduce(function(a,b){return a+b;},0),''];
-  sd.sts.forEach(function(s,i){lines.push('S'+s.n+' '+s.title.split('—')[0].trim()+'['+((s.balls===0?'drill':(sd.bh[i]||0)+'/'+s.balls+' balls'))+'] '+rl(s.rating));});
+  sd.sts.forEach(function(s,i){
+    var b=s.balls===0?'drill':(sd.bh[i]||0)+'/'+s.balls+' balls';
+    lines.push('S'+s.n+' '+s.title.split('--')[0].split('(')[0].trim()+'['+b+'] '+rl(s.rating));
+  });
   if(sd.note){lines.push('');lines.push('Notes: '+sd.note);}
   window.location.href='sms:'+COACH_NUM+'?body='+encodeURIComponent(lines.join('\n'));
 }
 
-// DASHBOARD
+// ── COACH SETUP ──
+function openSetup() {
+  document.getElementById('cm-snote').value = cfg.sessionNote || '';
+  document.getElementById('cm-cnote').value = cfg.courseNote || '';
+  buildPeRows();
+  buildBallRows();
+  showOv('setupOverlay');
+}
+
+function closeSetup() { hideOv('setupOverlay'); }
+
+function saveSetup() {
+  cfg.sessionNote = document.getElementById('cm-snote').value.trim();
+  cfg.courseNote = document.getElementById('cm-cnote').value.trim();
+  ADV.forEach(function(_,i){
+    var el=document.getElementById('cb'+i);
+    if(el) cfg.advBalls[i]=parseInt(el.value)||0;
+  });
+  var rows=document.querySelectorAll('.perow');
+  roster=[];
+  rows.forEach(function(row){
+    var nm=row.querySelector('.cm-ni');
+    if(!nm||!nm.value.trim()) return;
+    var plan=row.querySelector('.ptbtn.dev.on')?'dev':'adv';
+    var id=row.dataset.id||('p'+Date.now()+Math.random().toString(36).slice(2));
+    roster.push({id:id,name:nm.value.trim(),plan:plan});
+  });
+  localStorage.setItem('bg_roster', JSON.stringify(roster));
+  localStorage.setItem('bg_cfg', JSON.stringify(cfg));
+  fbSaveConfig();
+  closeSetup();
+}
+
+function resetSessions() {
+  if(!confirm('Clear all player progress?')) return;
+  sessions={};
+  localStorage.setItem('bg_sessions', JSON.stringify(sessions));
+  fbResetSessions();
+  alert('Done.');
+}
+
+function buildPeRows() {
+  var c=document.getElementById('peRows');
+  c.innerHTML='';
+  var list = roster.length ? roster : [{id:'',name:'',plan:'adv'}];
+  list.forEach(function(p){addPeRowFor(p);});
+}
+
+function addPeRow() { addPeRowFor({id:'',name:'',plan:'adv'}); }
+
+function addPeRowFor(p) {
+  var c=document.getElementById('peRows');
+  var d=document.createElement('div');
+  d.className='perow';
+  d.dataset.id=p.id||('new'+Date.now()+Math.random().toString(36).slice(2));
+  d.innerHTML='<input class="cm-ni" placeholder="Player name" value="'+(p.name||'')+'" maxlength="20">'
+    +'<div class="plan-tog">'
+    +'<button type="button" class="ptbtn adv'+(p.plan!=='dev'?' on':'')+'" onclick="togPlan(this,\'adv\')">Adv</button>'
+    +'<button type="button" class="ptbtn dev'+(p.plan==='dev'?' on':'')+'" onclick="togPlan(this,\'dev\')">Dev</button>'
+    +'</div>'
+    +'<button type="button" class="del-btn" onclick="this.closest(\'.perow\').remove()">x</button>';
+  c.appendChild(d);
+}
+
+function togPlan(btn,plan) {
+  btn.closest('.perow').querySelectorAll('.ptbtn').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on');
+}
+
+function buildBallRows() {
+  var c=document.getElementById('ballRows');
+  c.innerHTML='';
+  ADV.forEach(function(s,i){
+    var d=document.createElement('div');
+    d.className='brow';
+    d.innerHTML='<div class="brow-lbl">S'+s.n+' '+s.title.split('--')[0].split('(')[0].trim()+'</div>'
+      +'<input type="number" min="0" max="50" value="'+(cfg.advBalls[i]||s.balls)+'" id="cb'+i+'" oninput="updBallTot()">';
+    c.appendChild(d);
+  });
+  updBallTot();
+}
+
+function updBallTot() {
+  var tot=0;
+  ADV.forEach(function(_,i){var el=document.getElementById('cb'+i);if(el)tot+=parseInt(el.value)||0;});
+  var el=document.getElementById('ballTot');
+  el.textContent='Total: '+tot+' / 50';
+  el.className='btot '+(tot===50?'ok':'bad');
+}
+
+// ── LIVE DASHBOARD ──
 function openDash() {
-  showHdr(false); renderDash(); showScreen('dashScreen');
+  showHdr(false);
+  showScreen('dashScreen');
+  renderDash();
+  if (FB) {
+    if (dashRef) { dashRef.off('value'); dashRef=null; }
+    dashRef = FB.ref('sessions');
+    dashRef.on('value', function(snap) {
+      sessions = snap.exists() ? (snap.val()||{}) : {};
+      localStorage.setItem('bg_sessions', JSON.stringify(sessions));
+      if (document.getElementById('dashScreen').classList.contains('active')) renderDash();
+    });
+  }
+}
+
+function leaveDash() {
+  if (dashRef) { dashRef.off('value'); dashRef=null; }
+  showHdr(false);
+  showScreen('welcomeScreen');
 }
 
 function renderDash() {
   var adv=roster.filter(function(p){return p.plan==='adv';});
   var dev=roster.filter(function(p){return p.plan==='dev';});
   var hard=0,mid=0,easy=0;
-  roster.forEach(function(p){var sd=sessions[p.id];if(sd&&sd.sts)sd.sts.forEach(function(s){if(s.rating==='hard')hard++;else if(s.rating==='mid')mid++;else if(s.rating==='easy')easy++;});});
-  var h='<button class="back-btn" onclick="showScreen(\'welcomeScreen\')">← Home</button>'+
-    '<div class="cd-hdr"><img src="logo.jpeg" class="cd-logo" alt=""><div class="cd-title">Live Dashboard</div></div>'+
-    '<div class="cd-sub">Shows current session progress</div>'+
-    '<div class="dsum">'+
-    '<div class="dsb hard"><div class="dsn">'+hard+'</div><div class="dsl">Difficult</div></div>'+
-    '<div class="dsb mid"><div class="dsn">'+mid+'</div><div class="dsl">So-so</div></div>'+
-    '<div class="dsb easy"><div class="dsn">'+easy+'</div><div class="dsl">Easy</div></div>'+
-    '</div>';
-  if(adv.length){h+='<div class="grp-lbl adv">⛳ Advanced</div>';adv.forEach(function(p){h+=dashCard(p);});}
-  if(dev.length){h+='<div class="grp-lbl dev">⛳ Developing</div>';dev.forEach(function(p){h+=dashCard(p);});}
+  roster.forEach(function(p){
+    var sd=sessions[p.id];
+    if(sd&&sd.sts) sd.sts.forEach(function(s){if(s.rating==='hard')hard++;else if(s.rating==='mid')mid++;else if(s.rating==='easy')easy++;});
+  });
+  var h='<button class="back-btn" onclick="leaveDash()">&#8592; Home</button>'
+    +'<div class="cd-hdr"><img src="logo.jpeg" class="cd-logo" alt=""><div class="cd-title">'+(FB?'<span class="live-dot"></span>':'')+'Live Dashboard</div></div>'
+    +'<div class="cd-sub">'+(FB?'Updates automatically':'Local only')+'</div>'
+    +'<div class="dsum">'
+    +'<div class="dsb hard"><div class="dsn">'+hard+'</div><div class="dsl">Difficult</div></div>'
+    +'<div class="dsb mid"><div class="dsn">'+mid+'</div><div class="dsl">So-so</div></div>'
+    +'<div class="dsb easy"><div class="dsn">'+easy+'</div><div class="dsl">Easy</div></div>'
+    +'</div>';
+  if(adv.length){h+='<div class="grp-lbl adv">&#9971; Advanced</div>';adv.forEach(function(p){h+=dashCard(p);});}
+  if(dev.length){h+='<div class="grp-lbl dev">&#9971; Developing</div>';dev.forEach(function(p){h+=dashCard(p);});}
   if(!roster.length) h+='<div class="no-players">No players yet.<br>Add them in Coach Setup.</div>';
   document.getElementById('dashScreen').innerHTML=h;
 }
@@ -614,218 +794,21 @@ function dashCard(p) {
   var cid='cc'+p.id;
   var rows=(sd.sts||sts).map(function(s,i){
     var rc=s.rating?'rp-'+s.rating:'rp-none';
-    var rl=s.rating==='hard'?'Hard':s.rating==='mid'?'So-so':s.rating==='easy'?'Easy':'—';
+    var rl=s.rating==='hard'?'Hard':s.rating==='mid'?'So-so':s.rating==='easy'?'Easy':'--';
     var bh=sd.bh?sd.bh[i]||0:0;
     var bg=s.done?'background:var(--complete);color:#fff':'background:'+color+';color:var(--ink)';
-    return '<div class="csr"><div class="csn" style="'+bg+'">'+(s.done?'✓':s.n)+'</div>'+
-      '<div class="csname">'+s.title.split('—')[0].trim()+'</div>'+
-      '<span class="csballs">'+(s.balls===0?'drill':bh+'/'+s.balls)+'</span>'+
-      '<span class="rp '+rc+'">'+rl+'</span></div>';
+    return '<div class="csr"><div class="csn" style="'+bg+'">'+(s.done?'&#10003;':s.n)+'</div>'
+      +'<div class="csname">'+s.title.split('--')[0].split('(')[0].trim()+'</div>'
+      +'<span class="csballs">'+(s.balls===0?'drill':bh+'/'+s.balls)+'</span>'
+      +'<span class="rp '+rc+'">'+rl+'</span></div>';
   }).join('');
-  return '<div class="pcc"><div class="pcch" onclick="var e=document.getElementById(\''+cid+'\');e.style.display=e.style.display===\'none\'?\'block\':\'none\'">'+
-    '<div class="cav" style="background:'+color+';color:var(--ink)">'+ini(p.name)+'</div>'+
-    '<div style="flex:1"><div class="cpname">'+p.name+(sd.done?' ✅':'')+'</div>'+
-    '<div class="cpmeta">Station '+Math.min(dn+1,sts.length)+' of '+sts.length+' · '+hit+'/'+tot+' balls</div>'+
-    '<div class="cbar-bg"><div class="cbar-fill" style="background:'+color+';width:'+pct+'%"></div></div></div>'+
-    '<div class="cpct" style="color:'+color+'">'+pct+'%</div></div>'+
-    '<div class="csl" id="'+cid+'" style="display:none">'+rows+'</div></div>';
-}
-
-// SETUP
-// openSetup defined in Firebase section below
-function closeSetup() { hideOverlay('setupOverlay'); }
-
-function saveSetup() {
-  cfg.sessionNote = document.getElementById('cm-snote').value.trim();
-  cfg.courseNote = document.getElementById('cm-cnote').value.trim();
-  ADV.forEach(function(_,i){var el=document.getElementById('cb'+i);if(el)cfg.advBalls[i]=parseInt(el.value)||0;});
-  var rows=document.querySelectorAll('.perow'); roster=[];
-  rows.forEach(function(row){
-    var nm=row.querySelector('.cm-ni'); if(!nm||!nm.value.trim()) return;
-    var plan=row.querySelector('.ptbtn.dev.on')?'dev':'adv';
-    var id=row.dataset.id||('p'+Date.now()+Math.random().toString(36).slice(2));
-    roster.push({id:id,name:nm.value.trim(),plan:plan});
-  });
-  save(); closeSetup();
-}
-
-function resetSessions() {
-  if(!confirm('Clear all player progress?')) return;
-  sessions={}; save(); alert('Done.');
-}
-
-function buildPeRows() {
-  var c=document.getElementById('peRows'); c.innerHTML='';
-  (roster.length?roster:[{id:'',name:'',plan:'adv'}]).forEach(function(p){addPeRowFor(p);});
-}
-function addPeRow() { addPeRowFor({id:'',name:'',plan:'adv'}); }
-function addPeRowFor(p) {
-  var c=document.getElementById('peRows');
-  var d=document.createElement('div'); d.className='perow';
-  d.dataset.id=p.id||('new'+Date.now()+Math.random().toString(36).slice(2));
-  d.innerHTML='<input class="cm-ni" placeholder="Player name" value="'+(p.name||'')+'" maxlength="20">'+
-    '<div class="plan-tog">'+
-    '<button type="button" class="ptbtn adv'+(p.plan!=='dev'?' on':'')+'" onclick="togPlan(this,\'adv\')">Adv</button>'+
-    '<button type="button" class="ptbtn dev'+(p.plan==='dev'?' on':'')+'" onclick="togPlan(this,\'dev\')">Dev</button>'+
-    '</div>'+
-    '<button type="button" class="del-btn" onclick="this.closest(\'.perow\').remove()">×</button>';
-  c.appendChild(d);
-}
-function togPlan(btn,plan) {
-  btn.closest('.perow').querySelectorAll('.ptbtn').forEach(function(b){b.classList.remove('on');});
-  btn.classList.add('on');
-}
-function buildBallRows() {
-  var c=document.getElementById('ballRows'); c.innerHTML='';
-  ADV.forEach(function(s,i){
-    var d=document.createElement('div'); d.className='brow';
-    d.innerHTML='<div class="brow-lbl">S'+s.n+' '+s.title.split('—')[0].trim()+'</div>'+
-      '<input type="number" min="0" max="50" value="'+(cfg.advBalls[i]||s.balls)+'" id="cb'+i+'" oninput="updBallTot()">';
-    c.appendChild(d);
-  });
-  updBallTot();
-}
-function updBallTot() {
-  var tot=0; ADV.forEach(function(_,i){var el=document.getElementById('cb'+i);if(el)tot+=parseInt(el.value)||0;});
-  var el=document.getElementById('ballTot'); el.textContent='Total: '+tot+' / 50';
-  el.className='btot '+(tot===50?'ok':'bad');
-}
-
-function openWalk() { showOverlay('walkOverlay'); }
-function closeWalk() { hideOverlay('walkOverlay'); }
-</script>
-
-<script src="https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-app-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-database-compat.js">
-// ── FIREBASE SYNC ──
-var FB = null;
-var fbReady = false;
-
-try {
-  firebase.initializeApp({
-    apiKey:"AIzaSyADNKgv2CmT8yHwmdHiydbWQTfD-STcr_Y",
-    authDomain:"bears-golf.firebaseapp.com",
-    databaseURL:"https://bears-golf-default-rtdb.firebaseio.com",
-    projectId:"bears-golf",
-    storageBucket:"bears-golf.firebasestorage.app",
-    messagingSenderId:"500615931144",
-    appId:"1:500615931144:web:4f0fe244624e5e08dbb8bd"
-  });
-  FB = firebase.database();
-} catch(e) { console.warn('Firebase unavailable:', e); fbReady = true; }
-
-// Persistent listeners - keep data in sync always
-if (FB) {
-  FB.ref('config').on('value', function(snap) {
-    if (snap.exists()) {
-      var d = snap.val();
-      if (d.roster) { roster = d.roster; localStorage.setItem('bg_roster', JSON.stringify(roster)); }
-      if (d.coachCfg) { cfg = Object.assign(cfg, d.coachCfg); localStorage.setItem('bg_cfg', JSON.stringify(cfg)); }
-    }
-    fbReady = true;
-  });
-  FB.ref('sessions').on('value', function(snap) {
-    sessions = snap.exists() ? (snap.val()||{}) : {};
-    localStorage.setItem('bg_sessions', JSON.stringify(sessions));
-  });
-} else {
-  fbReady = true;
-}
-
-// Override save to also write to Firebase
-var _localSave = save;
-function save() {
-  _localSave();
-  if (FB) {
-    FB.ref('config').set({roster:roster, coachCfg:cfg});
-    FB.ref('sessions').set(sessions);
-  }
-}
-
-// goSelect - show instantly from cache, or wait briefly for Firebase first load
-function goSelect() {
-  showHdr(false);
-  showScreen('selectScreen');
-  if (fbReady) {
-    renderPlayerScreen();
-  } else {
-    document.getElementById('selectScreen').innerHTML = '<div class="no-players" id="loadMsg"><div style="margin-bottom:8px">&#9968;</div>Loading your session...</div>';
-    var t = setInterval(function() {
-      if (fbReady) { clearInterval(t); renderPlayerScreen(); }
-    }, 100);
-    setTimeout(function() { clearInterval(t); renderPlayerScreen(); }, 3000);
-  }
-}
-
-function renderPlayerScreen() {
-  if (!roster.length) {
-    document.getElementById('selectScreen').innerHTML = '<div class="no-players">No players set up yet.<br>Ask your coach to add players<br>in Coach Setup.</div>';
-  } else {
-    renderSelect();
-  }
-}
-
-// openSetup renders from current (already synced) data
-function openSetup() {
-  try {
-    document.getElementById('cm-snote').value = cfg.sessionNote||'';
-    document.getElementById('cm-cnote').value = cfg.courseNote||'';
-    buildPeRows();
-    buildBallRows();
-    showOverlay('setupOverlay');
-  } catch(e) {
-    alert('Setup error: ' + e.message);
-  }
-}
-
-// Live dashboard with real-time listener
-var dashRef = null;
-function openDash() {
-  showHdr(false);
-  showScreen('dashScreen');
-  renderDash();
-  if (FB) {
-    if (dashRef) { dashRef.off('value'); dashRef = null; }
-    dashRef = FB.ref('sessions');
-    dashRef.on('value', function(snap) {
-      sessions = snap.exists() ? (snap.val()||{}) : {};
-      localStorage.setItem('bg_sessions', JSON.stringify(sessions));
-      if (document.getElementById('dashScreen').classList.contains('active')) renderDash();
-    });
-  }
-}
-
-function leaveDash() {
-  if (dashRef) { dashRef.off('value'); dashRef = null; }
-  showScreen('welcomeScreen');
-}
-
-function resetSessions() {
-  if (!confirm('Clear all player progress?')) return;
-  sessions = {};
-  localStorage.setItem('bg_sessions', JSON.stringify(sessions));
-  if (FB) FB.ref('sessions').remove();
-  alert('Done.');
-}
-
-function renderDash() {
-  var adv=roster.filter(function(p){return p.plan==='adv';});
-  var dev=roster.filter(function(p){return p.plan==='dev';});
-  var hard=0,mid=0,easy=0;
-  roster.forEach(function(p){var sd=sessions[p.id];if(sd&&sd.sts)sd.sts.forEach(function(s){if(s.rating==='hard')hard++;else if(s.rating==='mid')mid++;else if(s.rating==='easy')easy++;});});
-  var liveHtml = FB ? '<span class="live-dot"></span>' : '';
-  var h='<button class="back-btn" onclick="leaveDash()">&#8592; Home</button>'+
-    '<div class="cd-hdr"><img src="logo.jpeg" class="cd-logo" alt=""><div class="cd-title">'+liveHtml+'Live Dashboard</div></div>'+
-    '<div class="cd-sub">'+(FB?'Updates automatically as players hit balls':'Local only')+'</div>'+
-    '<div class="dsum">'+
-    '<div class="dsb hard"><div class="dsn">'+hard+'</div><div class="dsl">Difficult</div></div>'+
-    '<div class="dsb mid"><div class="dsn">'+mid+'</div><div class="dsl">So-so</div></div>'+
-    '<div class="dsb easy"><div class="dsn">'+easy+'</div><div class="dsl">Easy</div></div>'+
-    '</div>';
-  if(adv.length){h+='<div class="grp-lbl adv">&#9971; Advanced</div>';adv.forEach(function(p){h+=dashCard(p);});}
-  if(dev.length){h+='<div class="grp-lbl dev">&#9971; Developing</div>';dev.forEach(function(p){h+=dashCard(p);});}
-  if(!roster.length) h+='<div class="no-players">No players yet.<br>Add them in Coach Setup.</div>';
-  document.getElementById('dashScreen').innerHTML=h;
+  return '<div class="pcc"><div class="pcch" onclick="var e=document.getElementById(\''+cid+'\');e.style.display=e.style.display===\'none\'?\'block\':\'none\'">'
+    +'<div class="cav" style="background:'+color+';color:var(--ink)">'+ini(p.name)+'</div>'
+    +'<div style="flex:1"><div class="cpname">'+p.name+(sd.done?' &#9989;':'')+'</div>'
+    +'<div class="cpmeta">Station '+Math.min(dn+1,sts.length)+' of '+sts.length+' - '+hit+'/'+tot+' balls</div>'
+    +'<div class="cbar-bg"><div class="cbar-fill" style="background:'+color+';width:'+pct+'%"></div></div></div>'
+    +'<div class="cpct" style="color:'+color+'">'+pct+'%</div></div>'
+    +'<div class="csl" id="'+cid+'" style="display:none">'+rows+'</div></div>';
 }
 
 </script>
