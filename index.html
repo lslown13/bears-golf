@@ -354,7 +354,12 @@ try {
   });
   // Keep sessions in sync
   FB.ref('sessions').on('value', function(snap) {
-    sessions = snap.exists() ? (snap.val() || {}) : {};
+    var incoming = snap.exists() ? (snap.val() || {}) : {};
+    // Merge incoming - don't overwrite current player's active session
+    if (curPlayer && sessions[curPlayer.id]) {
+      incoming[curPlayer.id] = sessions[curPlayer.id];
+    }
+    sessions = incoming;
     localStorage.setItem('bg_sessions', JSON.stringify(sessions));
   });
 } catch(e) {
