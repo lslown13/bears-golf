@@ -464,7 +464,7 @@ function pBtn(p) {
 
 function openPlayer(id) {
   var p = roster.find(function(x){return x.id===id;});
-  if (!p) { alert('Player not found for id: ' + id + '. Roster length: ' + roster.length); return; }
+  if (!p) return;
   curPlayer = p;
   if (!sessions[id]) {
     var sts = JSON.parse(JSON.stringify(p.plan==='adv' ? ADV : DEV));
@@ -571,12 +571,18 @@ function stCard(st,idx,isActive,isDone,isLocked,pc) {
     bh = '<div style="padding:4px 14px 10px;font-size:12px;color:var(--muted)">No balls - work through the drill then mark done.</div>';
   }
   var rh = '';
+  var nh = '';
   if (!isLocked) {
     rh = '<div class="rsec"><div class="rlbl">How did this station feel?</div><div class="rbtns">'
       +'<button class="rbtn r-hard'+(st.rating==='hard'?' sel':'')+'" onclick="setRating('+idx+',\'hard\')"><span class="rem">&#128548;</span>Difficult</button>'
       +'<button class="rbtn r-mid'+(st.rating==='mid'?' sel':'')+'" onclick="setRating('+idx+',\'mid\')"><span class="rem">&#128528;</span>So-so</button>'
       +'<button class="rbtn r-easy'+(st.rating==='easy'?' sel':'')+'" onclick="setRating('+idx+',\'easy\')"><span class="rem">&#128522;</span>Easy</button>'
       +'</div></div>';
+    var stNote = (sd.stNotes && sd.stNotes[idx]) || '';
+    nh = '<div class="st-notes-wrap">'
+      +'<div class="st-notes-lbl">Notes for coach (optional)</div>'
+      +'<textarea class="st-notes-ta" placeholder="What felt good or difficult? Any questions?" oninput="saveStNote('+idx+',this.value)">'+stNote+'</textarea>'
+      +'</div>';
   }
   // canC defined below
   var allBalls = st.noBalls || hc>=st.balls;
