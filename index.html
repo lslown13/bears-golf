@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Bears Golf</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--grass:#2d5a1b;--turf:#1a3d10;--flag:#e8c84a;--white:#f7f9f5;--ink:#141a10;--ink2:#3a4a30;--muted:#7a8c70;--complete:#4caf65;--card-bg:#f0f4ea;--card-border:#c8d8b8;--adv:#e8c84a;--dev:#5bb8f5;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',sans-serif;background:var(--turf);min-height:100vh;color:var(--ink)}
+.app{max-width:440px;margin:0 auto;padding:0 0 60px}
+.screen{display:none;padding:20px}.screen.active{display:block}
+.hdr{background:var(--grass);padding:14px 20px 12px;border-bottom:3px solid var(--flag);position:sticky;top:0;z-index:100;display:none}
+.hdr-top{display:flex;align-items:center;justify-content:space-between}
+.hdr-left{display:flex;align-items:center;gap:10px;flex:1}
+.hdr-logo{width:34px;height:34px;object-fit:contain}
+.hdr-title{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:.04em;color:var(--white);line-height:1}
+.hdr-sub{font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-top:1px}
+.hdr-right{display:flex;align-items:center;gap:8px}
+.hdr-balls{font-family:'Bebas Neue',sans-serif;font-size:24px;line-height:1}
+.hdr-blabel{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase}
+.icon-btn{width:32px;height:32px;border-radius:50%;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:rgba(255,255,255,.85);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.prog-bg{height:4px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden;margin-top:10px}
+.prog-fill{height:100%;border-radius:3px;transition:width .4s}
+.prog-label{font-size:10px;color:rgba(255,255,255,.4);margin-top:4px;text-align:right}
+.overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.show{display:flex}
+.welcome{padding-top:20px;text-align:center}
+.w-logo{width:110px;height:110px;object-fit:contain;margin-bottom:12px}
+.w-title{font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--flag);letter-spacing:.04em;line-height:1;margin-bottom:4px}
+.w-sub{font-size:13px;color:rgba(255,255,255,.45);margin-bottom:28px}
+.role-btn{width:100%;border:none;border-radius:16px;padding:18px 20px;cursor:pointer;display:flex;align-items:center;gap:16px;margin-bottom:12px;text-align:left}
+.rb-player{background:var(--card-bg);border:1px solid var(--card-border)}
+.rb-coach{background:var(--grass);border:2px solid var(--flag)}
+.rb-dash{background:var(--grass);border:2px solid rgba(255,255,255,.3)}
+.role-icon{font-size:26px;flex-shrink:0}
+.rb-player .ri-title{font-size:15px;font-weight:600;color:var(--ink)}
+.rb-coach .ri-title,.rb-dash .ri-title{font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:.04em;color:var(--flag)}
+.rb-player .ri-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.rb-coach .ri-sub,.rb-dash .ri-sub{font-size:12px;color:rgba(255,255,255,.5);margin-top:2px}
+.pin-box{background:var(--card-bg);border-radius:20px;padding:28px 24px;width:100%;max-width:300px;text-align:center}
+.pin-title{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--grass);letter-spacing:.04em;margin-bottom:4px}
+.pin-sub{font-size:13px;color:var(--muted);margin-bottom:18px}
+.pin-dots{display:flex;justify-content:center;gap:12px;margin-bottom:18px}
+.pd{width:16px;height:16px;border-radius:50%;border:2px solid var(--card-border);background:transparent;transition:background .15s}
+.pd.on{background:var(--grass);border-color:var(--grass)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.pkey{padding:14px;border-radius:11px;border:1px solid var(--card-border);background:var(--white);font-size:20px;font-weight:600;color:var(--ink);cursor:pointer;font-family:'DM Sans',sans-serif}
+.pkey:active{background:#d8e8c8}
+.pin-err{font-size:12px;color:#c0392b;min-height:18px;margin-bottom:8px}
+.pin-cancel{font-size:13px;color:var(--muted);cursor:pointer;background:none;border:none;width:100%;font-family:'DM Sans',sans-serif;padding:4px}
+.sel-title{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--white);letter-spacing:.05em;margin-bottom:2px}
+.sel-sub{font-size:12px;color:rgba(255,255,255,.45);margin-bottom:16px}
+.grp-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin:12px 0 6px}
+.grp-lbl.adv{color:var(--adv)}.grp-lbl.dev{color:var(--dev)}
+.pbtn{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;margin-bottom:8px;text-align:left}
+.pbtn:active{background:rgba(255,255,255,.15)}
+.pav{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:17px;flex-shrink:0}
+.pname{font-size:14px;font-weight:600;color:var(--white)}
+.pstat{font-size:11px;color:rgba(255,255,255,.4);margin-top:1px}
+.done-badge{font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;background:var(--complete);color:#fff;text-transform:uppercase}
+.no-players{text-align:center;padding:40px 20px;color:rgba(255,255,255,.4);font-size:14px;line-height:1.7}
+.back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;color:rgba(255,255,255,.55);font-size:13px;font-family:'DM Sans',sans-serif;padding:8px 0 12px}
+.sess-hdr{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.sess-av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:19px;color:var(--ink);flex-shrink:0}
+.sess-name{font-family:'Bebas Neue',sans-serif;font-size:21px;color:var(--white);letter-spacing:.04em;line-height:1}
+.sess-plan{font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-top:2px}
+.sess-note{background:rgba(232,200,74,.12);border:1px solid rgba(232,200,74,.25);border-radius:10px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--white);line-height:1.5}
+.snote-ey{font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:600;color:var(--flag);display:block;margin-bottom:3px}
+.sc{background:var(--card-bg);border:1px solid var(--card-border);border-radius:16px;margin-bottom:12px;overflow:hidden}
+.sc.locked{opacity:.4;pointer-events:none}.sc.sc-done{border-color:var(--complete)}
+.sch{padding:12px 14px 9px;display:flex;align-items:flex-start;gap:10px;cursor:pointer;user-select:none}
+.snb{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:15px;flex-shrink:0;color:var(--ink)}
+.sc.sc-done .snb{background:var(--complete)!important;color:#fff}
+.sc-title{font-size:14px;font-weight:600;color:var(--ink)}
+.sc-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.sc-chk{font-size:16px;flex-shrink:0}
+.sbody{max-height:0;overflow:hidden;transition:max-height .35s}
+.sbody.open{max-height:900px}
+.sdesc{font-size:12px;color:var(--ink2);line-height:1.55;padding:10px 14px;border-top:1px solid var(--card-border)}
+.chips{display:flex;flex-wrap:wrap;gap:5px;padding:8px 14px 10px}
+.chip{font-size:10px;font-weight:600;letter-spacing:.04em;padding:3px 9px;border-radius:20px;text-transform:uppercase}
+.chip-b{background:var(--ink);color:var(--white)}.chip-f{background:rgba(0,0,0,.06);color:var(--ink2);border:1px solid rgba(0,0,0,.1)}
+.sc.sc-done .chip-b{background:var(--complete)}
+.bt{padding:0 14px 13px}
+.bt-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:7px;font-weight:600}
+.bgrid{display:flex;flex-wrap:wrap;gap:6px}
+.ball{width:28px;height:28px;border-radius:50%;background:var(--white);border:2px solid #c8d8b8;cursor:pointer;transition:background .12s,transform .1s;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:transparent;position:relative}
+.ball:active{transform:scale(.85)}
+.ball.hit{border-color:transparent;color:var(--ink)}
+.ball::after{content:'';position:absolute;inset:3px;border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(255,255,255,.4),transparent 60%);pointer-events:none}
+.rsec{padding:9px 14px 13px;border-top:1px solid var(--card-border)}
+.rlbl{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;margin-bottom:7px}
+.rbtns{display:flex;gap:6px}
+.rbtn{flex:1;padding:9px 4px;border-radius:10px;border:2px solid transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;text-align:center;line-height:1.3}
+.rbtn:active{transform:scale(.93)}
+.rem{font-size:17px;display:block;margin-bottom:3px}
+.r-hard{background:rgba(224,90,58,.1);color:#e05a3a;border-color:rgba(224,90,58,.2)}.r-hard.sel{background:#e05a3a;color:#fff;border-color:#e05a3a}
+.r-mid{background:rgba(232,200,74,.1);color:#9a7800;border-color:rgba(232,200,74,.3)}.r-mid.sel{background:var(--flag);color:var(--ink);border-color:var(--flag)}
+.r-easy{background:rgba(76,175,101,.1);color:#2a7040;border-color:rgba(76,175,101,.2)}.r-easy.sel{background:var(--complete);color:#fff;border-color:var(--complete)}
+.cbtn{width:calc(100% - 28px);margin:4px 14px 13px;padding:12px;border-radius:11px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;display:block;color:var(--ink)}
+.cbtn:disabled{opacity:.3;cursor:default}.cbtn.done-btn{background:var(--complete)!important;color:#fff}
+.cn-wrap{padding:0 14px 11px}
+.cn-ey{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:5px}
+.cn-box{background:rgba(0,0,0,.04);border:1px solid var(--card-border);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink2);line-height:1.6}
+.cn-box.empty{color:var(--muted);font-style:italic}
+.finish{background:var(--grass);border-radius:20px;padding:20px;margin-top:8px}
+.finish-top{text-align:center;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:14px}
+.finish-logo{width:64px;height:64px;object-fit:contain;margin-bottom:6px}
+.fi{font-size:32px;margin-bottom:4px}
+.ft{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:.05em}
+.fsub{font-size:12px;color:rgba(255,255,255,.5);margin-top:2px}
+.fstats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:13px}
+.fstat{background:rgba(255,255,255,.08);border-radius:9px;padding:9px 5px;text-align:center}
+.fsn{font-family:'Bebas Neue',sans-serif;font-size:19px;line-height:1}
+.fsl{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,.38);margin-top:2px}
+.frep-head{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.4);font-weight:600;margin-bottom:7px}
+.frep-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+.frep-row:last-child{border-bottom:none}
+.frep-num{width:21px;height:21px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:12px;flex-shrink:0;background:rgba(255,255,255,.15);color:rgba(255,255,255,.5)}
+.frep-num.done{background:var(--complete);color:#fff}
+.frep-title{font-size:12px;color:rgba(255,255,255,.65);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.frep-balls{font-size:10px;color:rgba(255,255,255,.3);flex-shrink:0}
+.frep-pill{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;flex-shrink:0}
+.fp-hard{background:rgba(224,90,58,.3);color:#f5a090}.fp-mid{background:rgba(232,200,74,.2);color:#e8c84a}.fp-easy{background:rgba(76,175,101,.2);color:#6dcf87}.fp-none{background:rgba(255,255,255,.07);color:rgba(255,255,255,.25)}
+.fnotes-wrap{margin-top:13px;padding-top:13px;border-top:1px solid rgba(255,255,255,.1)}
+.fnotes-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.4);font-weight:600;margin-bottom:6px}
+.fnotes-ta{width:100%;min-height:70px;padding:10px 11px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.07);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--white);line-height:1.5;resize:none;outline:none}
+.fnotes-ta::placeholder{color:rgba(255,255,255,.28)}
+.fnotes-hint{font-size:10px;color:rgba(255,255,255,.22);margin-top:5px;line-height:1.4}
+.sms-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:11px;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-top:13px;color:var(--ink)}
+.cd-hdr{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.cd-logo{width:40px;height:40px;object-fit:contain}
+.cd-title{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--flag);letter-spacing:.04em}
+.cd-sub{font-size:12px;color:rgba(255,255,255,.4);margin-bottom:16px}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--complete);margin-right:6px;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.dsum{display:flex;gap:6px;margin-bottom:14px}
+.dsb{flex:1;border-radius:10px;padding:10px 8px;text-align:center}
+.dsb.hard{background:rgba(224,90,58,.15)}.dsb.mid{background:rgba(232,200,74,.12)}.dsb.easy{background:rgba(76,175,101,.12)}
+.dsn{font-family:'Bebas Neue',sans-serif;font-size:22px;line-height:1}
+.dsb.hard .dsn{color:#f0957a}.dsb.mid .dsn{color:#d4a800}.dsb.easy .dsn{color:#6dcf87}
+.dsl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,.4);margin-top:2px}
+.pcc{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:13px;margin-bottom:9px;overflow:hidden}
+.pcch{display:flex;align-items:center;gap:10px;padding:12px 13px;cursor:pointer}
+.cav{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:15px;flex-shrink:0}
+.cpname{font-size:14px;font-weight:600;color:var(--white)}
+.cpmeta{font-size:11px;color:rgba(255,255,255,.38);margin-top:1px}
+.cbar-bg{height:4px;background:rgba(255,255,255,.12);border-radius:3px;margin-top:5px}
+.cbar-fill{height:100%;border-radius:3px}
+.cpct{font-size:13px;font-weight:600;min-width:34px;text-align:right}
+.csl{border-top:1px solid rgba(255,255,255,.07)}
+.csr{display:flex;align-items:center;gap:8px;padding:8px 13px;border-bottom:1px solid rgba(255,255,255,.05)}
+.csr:last-child{border-bottom:none}
+.csn{width:21px;height:21px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:12px;flex-shrink:0}
+.csname{font-size:12px;color:rgba(255,255,255,.5);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csballs{font-size:11px;color:rgba(255,255,255,.3);margin-right:4px;flex-shrink:0}
+.rp{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;text-transform:uppercase;flex-shrink:0}
+.rp-hard{background:rgba(224,90,58,.25);color:#f0957a}.rp-mid{background:rgba(232,200,74,.2);color:#d4a800}.rp-easy{background:rgba(76,175,101,.2);color:#6dcf87}.rp-none{background:rgba(255,255,255,.07);color:rgba(255,255,255,.28)}
+.cm-box{background:var(--card-bg);border-radius:20px;width:100%;max-width:420px;max-height:93vh;overflow:hidden;display:flex;flex-direction:column}
+.cm-hdr{background:var(--grass);padding:15px 19px 11px;border-bottom:3px solid var(--flag);flex-shrink:0}
+.cm-title{font-family:'Bebas Neue',sans-serif;font-size:23px;color:var(--flag);letter-spacing:.04em}
+.cm-sub{font-size:12px;color:rgba(255,255,255,.4);margin-top:2px}
+.cm-body{overflow-y:auto;padding:15px 17px;flex:1}
+.cm-sec{margin-bottom:16px}
+.cm-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;color:var(--ink2);margin-bottom:7px;display:block}
+.cm-ta{width:100%;padding:9px 11px;border-radius:10px;border:2px solid var(--card-border);background:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--ink);line-height:1.5;resize:none;outline:none;min-height:75px}
+.cm-ta:focus{border-color:#b89a2a}
+.perow{display:grid;grid-template-columns:1fr auto auto;gap:7px;align-items:center;margin-bottom:7px}
+.cm-ni{width:100%;padding:9px 10px;border-radius:9px;border:2px solid var(--card-border);background:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--ink);outline:none}
+.plan-tog{display:flex;border-radius:8px;overflow:hidden;border:1px solid var(--card-border)}
+.ptbtn{padding:7px 9px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;background:var(--white);color:var(--muted);white-space:nowrap}
+.ptbtn.adv.on{background:var(--adv);color:var(--ink)}.ptbtn.dev.on{background:var(--dev);color:var(--ink)}
+.add-row-btn{width:100%;padding:9px;border-radius:9px;border:1.5px dashed var(--card-border);background:transparent;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);cursor:pointer;margin-top:3px}
+.del-btn{width:27px;height:27px;border-radius:7px;border:1px solid var(--card-border);background:transparent;color:var(--muted);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.brow{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.brow-lbl{font-size:13px;color:var(--ink2);flex:1}
+.brow input{width:56px;padding:7px;border-radius:8px;border:2px solid var(--card-border);background:var(--white);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:var(--ink);text-align:center;outline:none}
+.btot{font-size:12px;margin-top:4px}.btot.ok{color:#2a7040;font-weight:600}.btot.bad{color:#e05a3a;font-weight:600}
+.cm-foot{padding:11px 17px;border-top:1px solid var(--card-border);flex-shrink:0;display:flex;gap:7px}
+.cm-cancel{flex:1;padding:10px;border-radius:9px;border:1px solid var(--card-border);background:transparent;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);cursor:pointer}
+.cm-save{flex:2;padding:10px;border-radius:9px;border:none;background:var(--grass);color:var(--white);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer}
+.reset-btn{width:100%;padding:10px;border-radius:9px;border:1px solid rgba(224,90,58,.4);background:rgba(224,90,58,.1);font-family:'DM Sans',sans-serif;font-size:13px;color:#f0957a;cursor:pointer;margin-top:7px}
+.wt-box{background:var(--grass);border:2px solid var(--flag);border-radius:20px;width:100%;max-width:380px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column}
+.wt-hdr{padding:17px 19px 11px;border-bottom:1px solid rgba(255,255,255,.1);flex-shrink:0}
+.wt-title{font-family:'Bebas Neue',sans-serif;font-size:23px;color:var(--flag);letter-spacing:.04em}
+.wt-sub{font-size:12px;color:rgba(255,255,255,.4);margin-top:2px}
+.wt-steps{overflow-y:auto;padding:11px 17px;flex:1}
+.wstep{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+.wstep:last-child{border-bottom:none}
+.wicon{width:35px;height:35px;border-radius:9px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;margin-top:1px}
+.wstep-t{font-size:14px;font-weight:600;color:var(--white);margin-bottom:3px}
+.wstep-d{font-size:12px;color:rgba(255,255,255,.5);line-height:1.6}
+.wt-foot{padding:11px 17px;border-top:1px solid rgba(255,255,255,.1);flex-shrink:0}
+.wt-close{width:100%;padding:11px;border-radius:11px;border:none;background:var(--flag);color:var(--ink);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="pinOverlay">
+  <div class="pin-box">
+    <div class="pin-title">Coach Access</div>
+    <div class="pin-sub">Enter your 4-digit PIN</div>
+    <div class="pin-dots">
+      <div class="pd" id="pd0"></div><div class="pd" id="pd1"></div>
+      <div class="pd" id="pd2"></div><div class="pd" id="pd3"></div>
+    </div>
+    <div class="pin-pad">
+      <button class="pkey" onclick="pinKey('1')">1</button>
+      <button class="pkey" onclick="pinKey('2')">2</button>
+      <button class="pkey" onclick="pinKey('3')">3</button>
+      <button class="pkey" onclick="pinKey('4')">4</button>
+      <button class="pkey" onclick="pinKey('5')">5</button>
+      <button class="pkey" onclick="pinKey('6')">6</button>
+      <button class="pkey" onclick="pinKey('7')">7</button>
+      <button class="pkey" onclick="pinKey('8')">8</button>
+      <button class="pkey" onclick="pinKey('9')">9</button>
+      <button class="pkey" onclick="pinKey('0')" style="grid-column:2">0</button>
+      <button class="pkey" onclick="pinDel()">&#9003;</button>
+    </div>
+    <div class="pin-err" id="pinErr"></div>
+    <button class="pin-cancel" onclick="pinCancel()">Cancel</button>
+  </div>
+</div>
+
+<div class="overlay" id="setupOverlay">
+  <div class="cm-box">
+    <div class="cm-hdr"><div class="cm-title">Coach Setup</div><div class="cm-sub">Saves to this device</div></div>
+    <div class="cm-body">
+      <div class="cm-sec">
+        <span class="cm-lbl">Players &amp; plan assignments</span>
+        <div id="peRows"></div>
+        <button class="add-row-btn" onclick="addPeRow()">+ Add player</button>
+      </div>
+      <div class="cm-sec">
+        <span class="cm-lbl">Session note (all players see this)</span>
+        <textarea class="cm-ta" id="cm-snote" rows="2" placeholder="e.g. Focus on tempo today."></textarea>
+      </div>
+      <div class="cm-sec">
+        <span class="cm-lbl">Station 6 — course instructions</span>
+        <textarea class="cm-ta" id="cm-cnote" rows="3" placeholder="e.g. Hole 7 — par 4, 410 yd..."></textarea>
+      </div>
+      <div class="cm-sec">
+        <span class="cm-lbl">Advanced — balls per station</span>
+        <div id="ballRows"></div>
+        <div class="btot" id="ballTot"></div>
+      </div>
+      <div class="cm-sec">
+        <button class="reset-btn" onclick="resetSessions()">Clear all player progress</button>
+      </div>
+    </div>
+    <div class="cm-foot">
+      <button class="cm-cancel" onclick="closeSetup()">Cancel</button>
+      <button class="cm-save" onclick="saveSetup()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="walkOverlay">
+  <div class="wt-box">
+    <div class="wt-hdr"><div class="wt-title">How it works</div><div class="wt-sub">Read before your first session</div></div>
+    <div class="wt-steps">
+      <div class="wstep"><div class="wicon">&#128274;</div><div><div class="wstep-t">Stations unlock in order</div><div class="wstep-d">Complete each station before the next opens.</div></div></div>
+      <div class="wstep"><div class="wicon">&#9679;</div><div><div class="wstep-t">Tap balls as you hit them</div><div class="wstep-d">Tap a circle after each shot. Tap the last filled one to undo.</div></div></div>
+      <div class="wstep"><div class="wicon">&#128548;</div><div><div class="wstep-t">Rate each station</div><div class="wstep-d">Tell your coach how it felt. Be honest.</div></div></div>
+      <div class="wstep"><div class="wicon">&#10003;</div><div><div class="wstep-t">Mark the station done</div><div class="wstep-d">Once all balls are hit the green button activates.</div></div></div>
+      <div class="wstep"><div class="wicon">&#128172;</div><div><div class="wstep-t">Text results to coach</div><div class="wstep-d">Tap the text button on your completion screen.</div></div></div>
+    </div>
+    <div class="wt-foot"><button class="wt-close" onclick="closeWalk()">Got it &rarr;</button></div>
+  </div>
+</div>
+
+<div class="hdr" id="hdr">
+  <div class="hdr-top">
+    <div class="hdr-left">
+      <img src="logo.jpeg" class="hdr-logo" alt="">
+      <div><div class="hdr-title">Range Tracker</div><div class="hdr-sub" id="hdrPlan">Bears Golf</div></div>
+    </div>
+    <div class="hdr-right">
+      <div style="text-align:right"><div class="hdr-balls" id="hdrBalls">0</div><div class="hdr-blabel">balls hit</div></div>
+      <button class="icon-btn" onclick="openWalk()">?</button>
+    </div>
+  </div>
+  <div class="prog-bg"><div class="prog-fill" id="hdrProg" style="width:0%"></div></div>
+  <div class="prog-label" id="hdrLbl"></div>
+</div>
+
+<div class="app">
+  <div class="screen active" id="welcomeScreen">
+    <div class="welcome">
+      <img src="logo.jpeg" class="w-logo" alt="Bears Golf">
+      <div class="w-title">Bears Golf</div>
+      <div class="w-sub">Range session tracker</div>
+      <button class="role-btn rb-player" onclick="goSelect()">
+        <span class="role-icon">&#127948;</span>
+        <div><div class="ri-title">I'm a Player</div><div class="ri-sub">Select your name and start your session</div></div>
+      </button>
+      <button class="role-btn rb-coach" onclick="openPin('setup')">
+        <span class="role-icon">&#128203;</span>
+        <div><div class="ri-title">Coach Setup</div><div class="ri-sub">Manage roster, assignments &amp; instructions</div></div>
+      </button>
+      <button class="role-btn rb-dash" onclick="openPin('dash')">
+        <span class="role-icon">&#128202;</span>
+        <div><div class="ri-title">Live Dashboard</div><div class="ri-sub">Watch team progress in real time</div></div>
+      </button>
+    </div>
+  </div>
+  <div class="screen" id="selectScreen"></div>
+  <div class="screen" id="sessScreen"></div>
+  <div class="screen" id="dashScreen"></div>
+</div>
+
+<script>
+var PIN = '2013';
+var COACH_NUM = '8126040343';
+var pinBuf = '';
+var pinDest = '';
+var curPlayer = null;
+
+var roster = JSON.parse(localStorage.getItem('bg_roster') || '[]');
+var cfg = JSON.parse(localStorage.getItem('bg_cfg') || '{"sessionNote":"","courseNote":"","advBalls":[8,10,10,10,6,6]}');
+var sessions = JSON.parse(localStorage.getItem('bg_sessions') || '{}');
+
+function save() {
+  localStorage.setItem('bg_roster', JSON.stringify(roster));
+  localStorage.setItem('bg_cfg', JSON.stringify(cfg));
+  localStorage.setItem('bg_sessions', JSON.stringify(sessions));
+}
+
+var ADV = [
+  {n:1,title:"Warm-up — wedge (60–80 yd)",desc:"Loose, relaxed half swings. Focus on contact quality and tempo, not power.",balls:8,tags:["tempo","contact"]},
+  {n:2,title:"Short iron — target work",desc:"7 or 8 iron. Pick a specific flag or yardage marker. Alternate between two targets. Full swings at ~75% effort.",balls:10,tags:["target alignment","ball flight"]},
+  {n:3,title:"Mid iron — long approach",desc:"5 or 6 iron. Simulate a long approach down the fairway. Focus on square face at impact and balanced finish.",balls:10,tags:["straight target","square face"]},
+  {n:4,title:"Fairway wood or hybrid",desc:"Sweep vs. digging. Brush the turf cleanly without a divot. Build confidence off the deck.",balls:10,tags:["clean contact","launch angle"]},
+  {n:5,title:"Driver — pre-shot routine",desc:"Every ball gets a full pre-shot routine: visualize, align, waggle, go. Pick a center landing zone and commit.",balls:6,tags:["pre-shot routine","fairway target"]},
+  {n:6,title:"Course simulation",desc:"Coach-directed. See the instructions below for this week's course and hole assignments.",balls:6,tags:["course play","coach-directed"],courseNote:true}
+];
+var DEV = [
+  {n:1,title:"Pre-swing fundamentals",desc:"Before touching a ball: grip pressure, stance width, ball position, and posture. Rehearse a slow-motion takeaway 5 times.",balls:0,tags:["grip","stance","posture"],noBalls:true},
+  {n:2,title:"9-iron — tee it up",desc:"Ball on a low tee. Make contact and send it forward. Build confidence.",balls:10,tags:["tee height","make contact"]},
+  {n:3,title:"9-iron — off the turf",desc:"Remove the tee. Brush the grass. One swing thought: eyes on the ball through impact.",balls:10,tags:["eyes on ball","brush the grass"]},
+  {n:4,title:"7-iron — longer club",desc:"Tee first (5 balls), then off turf (10 balls). Feel the difference in distance.",balls:15,tags:["tee first","1 swing thought"]},
+  {n:5,title:"Free choice — your best club",desc:"Pick whichever club felt best today. Pick a target and finish strong.",balls:15,tags:["player's choice","finish strong"]}
+];
+
+function ini(n) { return n.trim().split(' ').filter(Boolean).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'?'; }
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
+  document.getElementById(id).classList.add('active');
+}
+function showHdr(v) { document.getElementById('hdr').style.display = v ? 'block' : 'none'; }
+function showOverlay(id) { document.getElementById(id).classList.add('show'); }
+function hideOverlay(id) { document.getElementById(id).classList.remove('show'); }
+
+// PIN
+function openPin(dest) {
+  pinDest = dest; pinBuf = '';
+  updDots();
+  document.getElementById('pinErr').textContent = '';
+  showOverlay('pinOverlay');
+}
+function pinCancel() { hideOverlay('pinOverlay'); pinBuf = ''; pinDest = ''; }
+function pinKey(d) {
+  if (pinBuf.length >= 4) return;
+  pinBuf += d; updDots();
+  if (pinBuf.length === 4) {
+    setTimeout(function() {
+      if (pinBuf === PIN) {
+        hideOverlay('pinOverlay');
+        var dest = pinDest;
+        pinBuf = ''; pinDest = '';
+        if (dest === 'setup') openSetup();
+        else if (dest === 'dash') openDash();
+      } else {
+        document.getElementById('pinErr').textContent = 'Incorrect PIN — try again';
+        pinBuf = ''; updDots();
+      }
+    }, 200);
+  }
+}
+function pinDel() { pinBuf = pinBuf.slice(0,-1); updDots(); document.getElementById('pinErr').textContent = ''; }
+function updDots() { for(var i=0;i<4;i++) document.getElementById('pd'+i).classList.toggle('on', i<pinBuf.length); }
+
+// PLAYER SELECT
+// goSelect defined in Firebase section below
+
+function renderSelect() {
+  var adv = roster.filter(function(p){return p.plan==='adv';});
+  var dev = roster.filter(function(p){return p.plan==='dev';});
+  var h = '<div class="sel-title">Select Your Name</div><div class="sel-sub">Tap your name to open your session</div>';
+  if (adv.length) { h += '<div class="grp-lbl adv">&#9971; Advanced Plan</div>'; adv.forEach(function(p){h+=pBtn(p);}); }
+  if (dev.length) { h += '<div class="grp-lbl dev">&#9971; Developing Plan</div>'; dev.forEach(function(p){h+=pBtn(p);}); }
+  document.getElementById('selectScreen').innerHTML = h;
+}
+
+function pBtn(p) {
+  var sd = sessions[p.id] || {};
+  var sts = p.plan==='adv' ? ADV : DEV;
+  var tot = sts.reduce(function(a,s){return a+s.balls;},0);
+  var hit = sd.bh ? sd.bh.reduce(function(a,b){return a+b;},0) : 0;
+  var pct = tot>0 ? Math.round(hit/tot*100) : 0;
+  var done = sd.done || false;
+  var color = p.plan==='adv' ? 'var(--adv)' : 'var(--dev)';
+  return '<button class="pbtn" onclick="openPlayer(\''+p.id+'\')">'+
+    '<div class="pav" style="background:'+color+';color:var(--ink)">'+ini(p.name)+'</div>'+
+    '<div style="flex:1"><div class="pname">'+p.name+'</div>'+
+    '<div class="pstat">'+(done?'Session complete':hit>0?'In progress · '+pct+'%':'Not started')+'</div></div>'+
+    (done?'<span class="done-badge">Done</span>':'<span style="font-size:11px;color:rgba(255,255,255,.4)">'+pct+'%</span>')+
+    '</button>';
+}
+
+function openPlayer(id) {
+  var p = roster.find(function(x){return x.id===id;});
+  if (!p) return;
+  curPlayer = p;
+  if (!sessions[id]) {
+    var sts = JSON.parse(JSON.stringify(p.plan==='adv' ? ADV : DEV));
+    if (p.plan==='adv' && cfg.advBalls) sts.forEach(function(s,i){if(cfg.advBalls[i]!==undefined)s.balls=cfg.advBalls[i];});
+    sessions[id] = {sts:sts, cur:0, done:false, t0:Date.now(), t1:null, note:'', bh:sts.map(function(){return 0;})};
+    save();
+  }
+  var pc = p.plan==='adv' ? 'var(--adv)' : 'var(--dev)';
+  document.getElementById('hdrPlan').textContent = (p.plan==='adv'?'Advanced':'Developing')+' Plan';
+  document.getElementById('hdrProg').style.background = pc;
+  document.getElementById('hdrBalls').style.color = pc;
+  showHdr(true); updHdr(); renderSess(); showScreen('sessScreen');
+}
+
+function updHdr() {
+  if (!curPlayer) return;
+  var sd = sessions[curPlayer.id]; if(!sd) return;
+  var tot = sd.sts.reduce(function(a,s){return a+s.balls;},0);
+  var hit = sd.bh.reduce(function(a,b){return a+b;},0);
+  var dn = sd.sts.filter(function(s){return s.done;}).length;
+  document.getElementById('hdrBalls').textContent = hit;
+  document.getElementById('hdrProg').style.width = (tot>0?Math.round(hit/tot*100):0)+'%';
+  document.getElementById('hdrLbl').textContent = 'Station '+Math.min(dn+1,sd.sts.length)+' of '+sd.sts.length;
+}
+
+function renderSess() {
+  var p = curPlayer, sd = sessions[p.id];
+  var tot = sd.sts.reduce(function(a,s){return a+s.balls;},0);
+  var hit = sd.bh.reduce(function(a,b){return a+b;},0);
+  var pc = p.plan==='adv' ? 'var(--adv)' : 'var(--dev)';
+  var h = '<button class="back-btn" onclick="goBack()">← All Players</button>'+
+    '<div class="sess-hdr"><div class="sess-av" style="background:'+pc+'">'+ini(p.name)+'</div>'+
+    '<div><div class="sess-name">'+p.name+'</div>'+
+    '<div class="sess-plan" style="color:'+pc+'">'+(p.plan==='adv'?'Advanced':'Developing')+' Plan · '+hit+'/'+tot+' balls</div></div></div>';
+  if (cfg.sessionNote) h += '<div class="sess-note"><span class="snote-ey">Coach note</span>'+cfg.sessionNote+'</div>';
+  if (sd.done) {
+    var mins = sd.t1 ? Math.round((sd.t1-sd.t0)/60000) : 0;
+    var rated = sd.sts.filter(function(s){return s.rating;}).length;
+    var rows = sd.sts.map(function(s,i){
+      var pill,pc2;
+      if(s.rating==='hard'){pill='Difficult';pc2='fp-hard';}
+      else if(s.rating==='mid'){pill='So-so';pc2='fp-mid';}
+      else if(s.rating==='easy'){pill='Easy';pc2='fp-easy';}
+      else{pill='—';pc2='fp-none';}
+      var b = s.balls===0?'drill':(sd.bh[i]||0)+'/'+s.balls+' balls';
+      return '<div class="frep-row">'+
+        '<div class="frep-num'+(s.done?' done':'')+'">'+s.n+'</div>'+
+        '<div class="frep-title">'+s.title+'</div>'+
+        '<span class="frep-balls">'+b+'</span>'+
+        '<span class="frep-pill '+pc2+'">'+pill+'</span></div>';
+    }).join('');
+    h += '<div class="finish" style="border:2px solid '+pc+'">'+
+      '<div class="finish-top"><img src="logo.jpeg" class="finish-logo" alt=""><div class="fi">🏆</div>'+
+      '<div class="ft" style="color:'+pc+'">Session Complete!</div>'+
+      '<div class="fsub">Great work today, '+p.name.split(' ')[0]+'.</div></div>'+
+      '<div class="fstats">'+
+      '<div class="fstat"><div class="fsn" style="color:'+pc+'">'+hit+'</div><div class="fsl">Balls</div></div>'+
+      '<div class="fstat"><div class="fsn" style="color:'+pc+'">'+sd.sts.length+'</div><div class="fsl">Stations</div></div>'+
+      '<div class="fstat"><div class="fsn" style="color:'+pc+'">'+(mins>0?mins:'—')+'</div><div class="fsl">Min</div></div>'+
+      '<div class="fstat"><div class="fsn" style="color:'+pc+'">'+rated+'</div><div class="fsl">Rated</div></div>'+
+      '</div><div class="frep-head">Station breakdown</div>'+rows+
+      '<div class="fnotes-wrap"><div class="fnotes-lbl">📝 Notes for Coach</div>'+
+      '<textarea class="fnotes-ta" id="noteTA" placeholder="Questions, what felt good or tough..." oninput="saveNote(this.value)">'+sd.note+'</textarea>'+
+      '<div class="fnotes-hint">Add notes then tap the button below to text your results.</div></div>'+
+      '<button class="sms-btn" style="background:'+pc+'" onclick="sendSms()">💬 Text Results to Coach</button>'+
+      '</div>';
+  } else {
+    sd.sts.forEach(function(st,i){h += stCard(st,i,i===sd.cur,st.done,i>sd.cur,pc);});
+  }
+  document.getElementById('sessScreen').innerHTML = h;
+  if (!sd.done) { var b=document.getElementById('sb'+sd.cur); if(b) b.classList.add('open'); }
+}
+
+function stCard(st,idx,isActive,isDone,isLocked,pc) {
+  var cn = '';
+  if (st.courseNote) {
+    var sv = cfg.courseNote || '';
+    cn = '<div class="cn-wrap"><div class="cn-ey">📋 Coach instructions</div>'+
+      '<div class="cn-box'+(sv?'':' empty')+'">'+(sv||'No instructions yet — check with your coach.')+'</div></div>';
+  }
+  var sd = sessions[curPlayer.id];
+  var hc = sd.bh[idx]||0;
+  var bh = '';
+  if (!st.noBalls && st.balls>0) {
+    bh = '<div class="bt"><div class="bt-lbl">Tap each ball as you hit it — '+st.balls+' total</div><div class="bgrid">';
+    for (var b=0;b<st.balls;b++) {
+      bh += '<div class="ball'+(b<hc?' hit':'')+'" style="'+(b<hc?'background:'+pc+';border-color:transparent':'')+'" onclick="hitBall('+idx+','+b+')" id="bl'+idx+'_'+b+'">'+( b+1)+'</div>';
+    }
+    bh += '</div></div>';
+  } else if (st.noBalls) {
+    bh = '<div style="padding:4px 14px 10px;font-size:12px;color:var(--muted)">No balls — work through the drill then mark done.</div>';
+  }
+  var rh = '';
+  if (!isLocked) {
+    rh = '<div class="rsec"><div class="rlbl">How did this station feel?</div><div class="rbtns">'+
+      '<button class="rbtn r-hard'+(st.rating==='hard'?' sel':'')+'" onclick="setRating('+idx+',\'hard\')"><span class="rem">😤</span>Difficult</button>'+
+      '<button class="rbtn r-mid'+(st.rating==='mid'?' sel':'')+'" onclick="setRating('+idx+',\'mid\')"><span class="rem">😐</span>So-so</button>'+
+      '<button class="rbtn r-easy'+(st.rating==='easy'?' sel':'')+'" onclick="setRating('+idx+',\'easy\')"><span class="rem">😊</span>Easy</button>'+
+      '</div></div>';
+  }
+  var canC = st.noBalls || hc>=st.balls;
+  var bl = isDone ? '✓ Completed' : (canC ? 'Mark Station Done ✓' : 'Hit all '+st.balls+' balls to continue');
+  return '<div class="sc'+(isDone?' sc-done':'')+(isLocked?' locked':'')+'" id="sc'+idx+'">'+
+    '<div class="sch" onclick="togCard('+idx+')">'+
+    '<div class="snb" style="background:'+(isDone?'var(--complete)':pc)+'">'+(isDone?'✓':st.n)+'</div>'+
+    '<div style="flex:1"><div class="sc-title">'+st.title+'</div>'+
+    '<div class="sc-sub">'+(st.balls===0?'Drill only':st.balls+' balls')+' · '+st.tags.slice(0,2).join(' · ')+'</div></div>'+
+    '<div class="sc-chk">'+(isDone?'✅':isActive?'▼':'▶')+'</div></div>'+
+    '<div class="sbody" id="sb'+idx+'">'+
+    '<div class="sdesc">'+st.desc+'</div>'+
+    '<div class="chips"><span class="chip chip-b" style="background:'+(isDone?'var(--complete)':'var(--ink)')+'">'+
+    (st.balls===0?'Drill':st.balls+' balls')+'</span>'+
+    st.tags.map(function(t){return '<span class="chip chip-f">'+t+'</span>';}).join('')+'</div>'+
+    cn+bh+rh+
+    '<button class="cbtn'+(isDone?' done-btn':'')+'" style="background:'+(isDone?'var(--complete)':pc)+'" '+
+    (!isDone&&!canC?'disabled':'')+' onclick="completeStation('+idx+')">'+bl+'</button>'+
+    '</div></div>';
+}
+
+function togCard(idx) { var b=document.getElementById('sb'+idx); if(b) b.classList.toggle('open'); }
+
+function hitBall(si,bi) {
+  var sd=sessions[curPlayer.id], st=sd.sts[si]; if(st.done) return;
+  var hc=sd.bh[si]||0;
+  if(bi===hc-1) sd.bh[si]--;
+  else if(bi===hc) sd.bh[si]++;
+  save();
+  var pc = curPlayer.plan==='adv'?'var(--adv)':'var(--dev)';
+  var newHc = sd.bh[si];
+  for(var b=0;b<st.balls;b++){
+    var el=document.getElementById('bl'+si+'_'+b);
+    if(el){el.classList.toggle('hit',b<newHc);el.style.background=b<newHc?pc:'';el.style.borderColor=b<newHc?'transparent':'';}
+  }
+  if(newHc>=st.balls){var btn=document.querySelector('#sc'+si+' .cbtn');if(btn){btn.removeAttribute('disabled');btn.textContent='Mark Station Done ✓';}}
+  updHdr();
+}
+
+function setRating(si,r) {
+  sessions[curPlayer.id].sts[si].rating=r; save();
+  document.querySelectorAll('#sc'+si+' .rbtn').forEach(function(b){
+    b.classList.remove('sel');
+    if((r==='hard'&&b.classList.contains('r-hard'))||(r==='mid'&&b.classList.contains('r-mid'))||(r==='easy'&&b.classList.contains('r-easy'))) b.classList.add('sel');
+  });
+}
+
+function completeStation(si) {
+  var sd=sessions[curPlayer.id], st=sd.sts[si]; if(st.done) return;
+  st.done=true; if(si===sd.cur) sd.cur++;
+  if(sd.cur>=sd.sts.length){sd.done=true;sd.t1=Date.now();}
+  save(); updHdr(); renderSess();
+}
+
+function saveNote(v) { if(curPlayer){sessions[curPlayer.id].note=v;save();} }
+function goBack() { curPlayer=null; showHdr(false); renderSelect(); showScreen('selectScreen'); }
+
+function sendSms() {
+  var p=curPlayer, sd=sessions[p.id];
+  var rl=function(r){return r==='hard'?'Difficult':r==='mid'?'So-so':r==='easy'?'Easy':'--';};
+  var lines=['Range Session: '+p.name+' ('+(p.plan==='adv'?'Advanced':'Developing')+' Plan)','Balls: '+sd.bh.reduce(function(a,b){return a+b;},0),''];
+  sd.sts.forEach(function(s,i){lines.push('S'+s.n+' '+s.title.split('—')[0].trim()+'['+((s.balls===0?'drill':(sd.bh[i]||0)+'/'+s.balls+' balls'))+'] '+rl(s.rating));});
+  if(sd.note){lines.push('');lines.push('Notes: '+sd.note);}
+  window.location.href='sms:'+COACH_NUM+'?body='+encodeURIComponent(lines.join('\n'));
+}
+
+// DASHBOARD
+function openDash() {
+  showHdr(false); renderDash(); showScreen('dashScreen');
+}
+
+function renderDash() {
+  var adv=roster.filter(function(p){return p.plan==='adv';});
+  var dev=roster.filter(function(p){return p.plan==='dev';});
+  var hard=0,mid=0,easy=0;
+  roster.forEach(function(p){var sd=sessions[p.id];if(sd&&sd.sts)sd.sts.forEach(function(s){if(s.rating==='hard')hard++;else if(s.rating==='mid')mid++;else if(s.rating==='easy')easy++;});});
+  var h='<button class="back-btn" onclick="showScreen(\'welcomeScreen\')">← Home</button>'+
+    '<div class="cd-hdr"><img src="logo.jpeg" class="cd-logo" alt=""><div class="cd-title">Live Dashboard</div></div>'+
+    '<div class="cd-sub">Shows current session progress</div>'+
+    '<div class="dsum">'+
+    '<div class="dsb hard"><div class="dsn">'+hard+'</div><div class="dsl">Difficult</div></div>'+
+    '<div class="dsb mid"><div class="dsn">'+mid+'</div><div class="dsl">So-so</div></div>'+
+    '<div class="dsb easy"><div class="dsn">'+easy+'</div><div class="dsl">Easy</div></div>'+
+    '</div>';
+  if(adv.length){h+='<div class="grp-lbl adv">⛳ Advanced</div>';adv.forEach(function(p){h+=dashCard(p);});}
+  if(dev.length){h+='<div class="grp-lbl dev">⛳ Developing</div>';dev.forEach(function(p){h+=dashCard(p);});}
+  if(!roster.length) h+='<div class="no-players">No players yet.<br>Add them in Coach Setup.</div>';
+  document.getElementById('dashScreen').innerHTML=h;
+}
+
+function dashCard(p) {
+  var sd=sessions[p.id]||{};
+  var sts=p.plan==='adv'?ADV:DEV;
+  var tot=sts.reduce(function(a,s){return a+s.balls;},0);
+  var hit=sd.bh?sd.bh.reduce(function(a,b){return a+b;},0):0;
+  var pct=tot>0?Math.round(hit/tot*100):0;
+  var color=p.plan==='adv'?'#e8c84a':'#5bb8f5';
+  var dn=sd.sts?sd.sts.filter(function(s){return s.done;}).length:0;
+  var cid='cc'+p.id;
+  var rows=(sd.sts||sts).map(function(s,i){
+    var rc=s.rating?'rp-'+s.rating:'rp-none';
+    var rl=s.rating==='hard'?'Hard':s.rating==='mid'?'So-so':s.rating==='easy'?'Easy':'—';
+    var bh=sd.bh?sd.bh[i]||0:0;
+    var bg=s.done?'background:var(--complete);color:#fff':'background:'+color+';color:var(--ink)';
+    return '<div class="csr"><div class="csn" style="'+bg+'">'+(s.done?'✓':s.n)+'</div>'+
+      '<div class="csname">'+s.title.split('—')[0].trim()+'</div>'+
+      '<span class="csballs">'+(s.balls===0?'drill':bh+'/'+s.balls)+'</span>'+
+      '<span class="rp '+rc+'">'+rl+'</span></div>';
+  }).join('');
+  return '<div class="pcc"><div class="pcch" onclick="var e=document.getElementById(\''+cid+'\');e.style.display=e.style.display===\'none\'?\'block\':\'none\'">'+
+    '<div class="cav" style="background:'+color+';color:var(--ink)">'+ini(p.name)+'</div>'+
+    '<div style="flex:1"><div class="cpname">'+p.name+(sd.done?' ✅':'')+'</div>'+
+    '<div class="cpmeta">Station '+Math.min(dn+1,sts.length)+' of '+sts.length+' · '+hit+'/'+tot+' balls</div>'+
+    '<div class="cbar-bg"><div class="cbar-fill" style="background:'+color+';width:'+pct+'%"></div></div></div>'+
+    '<div class="cpct" style="color:'+color+'">'+pct+'%</div></div>'+
+    '<div class="csl" id="'+cid+'" style="display:none">'+rows+'</div></div>';
+}
+
+// SETUP
+// openSetup defined in Firebase section below
+function closeSetup() { hideOverlay('setupOverlay'); }
+
+function saveSetup() {
+  cfg.sessionNote = document.getElementById('cm-snote').value.trim();
+  cfg.courseNote = document.getElementById('cm-cnote').value.trim();
+  ADV.forEach(function(_,i){var el=document.getElementById('cb'+i);if(el)cfg.advBalls[i]=parseInt(el.value)||0;});
+  var rows=document.querySelectorAll('.perow'); roster=[];
+  rows.forEach(function(row){
+    var nm=row.querySelector('.cm-ni'); if(!nm||!nm.value.trim()) return;
+    var plan=row.querySelector('.ptbtn.dev.on')?'dev':'adv';
+    var id=row.dataset.id||('p'+Date.now()+Math.random().toString(36).slice(2));
+    roster.push({id:id,name:nm.value.trim(),plan:plan});
+  });
+  save(); closeSetup();
+}
+
+function resetSessions() {
+  if(!confirm('Clear all player progress?')) return;
+  sessions={}; save(); alert('Done.');
+}
+
+function buildPeRows() {
+  var c=document.getElementById('peRows'); c.innerHTML='';
+  (roster.length?roster:[{id:'',name:'',plan:'adv'}]).forEach(function(p){addPeRowFor(p);});
+}
+function addPeRow() { addPeRowFor({id:'',name:'',plan:'adv'}); }
+function addPeRowFor(p) {
+  var c=document.getElementById('peRows');
+  var d=document.createElement('div'); d.className='perow';
+  d.dataset.id=p.id||('new'+Date.now()+Math.random().toString(36).slice(2));
+  d.innerHTML='<input class="cm-ni" placeholder="Player name" value="'+(p.name||'')+'" maxlength="20">'+
+    '<div class="plan-tog">'+
+    '<button type="button" class="ptbtn adv'+(p.plan!=='dev'?' on':'')+'" onclick="togPlan(this,\'adv\')">Adv</button>'+
+    '<button type="button" class="ptbtn dev'+(p.plan==='dev'?' on':'')+'" onclick="togPlan(this,\'dev\')">Dev</button>'+
+    '</div>'+
+    '<button type="button" class="del-btn" onclick="this.closest(\'.perow\').remove()">×</button>';
+  c.appendChild(d);
+}
+function togPlan(btn,plan) {
+  btn.closest('.perow').querySelectorAll('.ptbtn').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on');
+}
+function buildBallRows() {
+  var c=document.getElementById('ballRows'); c.innerHTML='';
+  ADV.forEach(function(s,i){
+    var d=document.createElement('div'); d.className='brow';
+    d.innerHTML='<div class="brow-lbl">S'+s.n+' '+s.title.split('—')[0].trim()+'</div>'+
+      '<input type="number" min="0" max="50" value="'+(cfg.advBalls[i]||s.balls)+'" id="cb'+i+'" oninput="updBallTot()">';
+    c.appendChild(d);
+  });
+  updBallTot();
+}
+function updBallTot() {
+  var tot=0; ADV.forEach(function(_,i){var el=document.getElementById('cb'+i);if(el)tot+=parseInt(el.value)||0;});
+  var el=document.getElementById('ballTot'); el.textContent='Total: '+tot+' / 50';
+  el.className='btot '+(tot===50?'ok':'bad');
+}
+
+function openWalk() { showOverlay('walkOverlay'); }
+function closeWalk() { hideOverlay('walkOverlay'); }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-database-compat.js">
+// ── FIREBASE SYNC ──
+var FB = null;
+var fbReady = false;
+
+try {
+  firebase.initializeApp({
+    apiKey:"AIzaSyADNKgv2CmT8yHwmdHiydbWQTfD-STcr_Y",
+    authDomain:"bears-golf.firebaseapp.com",
+    databaseURL:"https://bears-golf-default-rtdb.firebaseio.com",
+    projectId:"bears-golf",
+    storageBucket:"bears-golf.firebasestorage.app",
+    messagingSenderId:"500615931144",
+    appId:"1:500615931144:web:4f0fe244624e5e08dbb8bd"
+  });
+  FB = firebase.database();
+} catch(e) { console.warn('Firebase unavailable:', e); fbReady = true; }
+
+// Persistent listeners - keep data in sync always
+if (FB) {
+  FB.ref('config').on('value', function(snap) {
+    if (snap.exists()) {
+      var d = snap.val();
+      if (d.roster) { roster = d.roster; localStorage.setItem('bg_roster', JSON.stringify(roster)); }
+      if (d.coachCfg) { cfg = Object.assign(cfg, d.coachCfg); localStorage.setItem('bg_cfg', JSON.stringify(cfg)); }
+    }
+    fbReady = true;
+  });
+  FB.ref('sessions').on('value', function(snap) {
+    sessions = snap.exists() ? (snap.val()||{}) : {};
+    localStorage.setItem('bg_sessions', JSON.stringify(sessions));
+  });
+} else {
+  fbReady = true;
+}
+
+// Override save to also write to Firebase
+var _localSave = save;
+function save() {
+  _localSave();
+  if (FB) {
+    FB.ref('config').set({roster:roster, coachCfg:cfg});
+    FB.ref('sessions').set(sessions);
+  }
+}
+
+// goSelect - show instantly from cache, or wait briefly for Firebase first load
+function goSelect() {
+  showHdr(false);
+  showScreen('selectScreen');
+  if (fbReady) {
+    renderPlayerScreen();
+  } else {
+    document.getElementById('selectScreen').innerHTML = '<div class="no-players" id="loadMsg"><div style="margin-bottom:8px">&#9968;</div>Loading your session...</div>';
+    var t = setInterval(function() {
+      if (fbReady) { clearInterval(t); renderPlayerScreen(); }
+    }, 100);
+    setTimeout(function() { clearInterval(t); renderPlayerScreen(); }, 3000);
+  }
+}
+
+function renderPlayerScreen() {
+  if (!roster.length) {
+    document.getElementById('selectScreen').innerHTML = '<div class="no-players">No players set up yet.<br>Ask your coach to add players<br>in Coach Setup.</div>';
+  } else {
+    renderSelect();
+  }
+}
+
+// openSetup renders from current (already synced) data
+function openSetup() {
+  document.getElementById('cm-snote').value = cfg.sessionNote||'';
+  document.getElementById('cm-cnote').value = cfg.courseNote||'';
+  buildPeRows(); buildBallRows();
+  showOverlay('setupOverlay');
+}
+
+// Live dashboard with real-time listener
+var dashRef = null;
+function openDash() {
+  showHdr(false);
+  showScreen('dashScreen');
+  renderDash();
+  if (FB) {
+    if (dashRef) { dashRef.off('value'); dashRef = null; }
+    dashRef = FB.ref('sessions');
+    dashRef.on('value', function(snap) {
+      sessions = snap.exists() ? (snap.val()||{}) : {};
+      localStorage.setItem('bg_sessions', JSON.stringify(sessions));
+      if (document.getElementById('dashScreen').classList.contains('active')) renderDash();
+    });
+  }
+}
+
+function leaveDash() {
+  if (dashRef) { dashRef.off('value'); dashRef = null; }
+  showScreen('welcomeScreen');
+}
+
+function resetSessions() {
+  if (!confirm('Clear all player progress?')) return;
+  sessions = {};
+  localStorage.setItem('bg_sessions', JSON.stringify(sessions));
+  if (FB) FB.ref('sessions').remove();
+  alert('Done.');
+}
+
+function renderDash() {
+  var adv=roster.filter(function(p){return p.plan==='adv';});
+  var dev=roster.filter(function(p){return p.plan==='dev';});
+  var hard=0,mid=0,easy=0;
+  roster.forEach(function(p){var sd=sessions[p.id];if(sd&&sd.sts)sd.sts.forEach(function(s){if(s.rating==='hard')hard++;else if(s.rating==='mid')mid++;else if(s.rating==='easy')easy++;});});
+  var liveHtml = FB ? '<span class="live-dot"></span>' : '';
+  var h='<button class="back-btn" onclick="leaveDash()">&#8592; Home</button>'+
+    '<div class="cd-hdr"><img src="logo.jpeg" class="cd-logo" alt=""><div class="cd-title">'+liveHtml+'Live Dashboard</div></div>'+
+    '<div class="cd-sub">'+(FB?'Updates automatically as players hit balls':'Local only')+'</div>'+
+    '<div class="dsum">'+
+    '<div class="dsb hard"><div class="dsn">'+hard+'</div><div class="dsl">Difficult</div></div>'+
+    '<div class="dsb mid"><div class="dsn">'+mid+'</div><div class="dsl">So-so</div></div>'+
+    '<div class="dsb easy"><div class="dsn">'+easy+'</div><div class="dsl">Easy</div></div>'+
+    '</div>';
+  if(adv.length){h+='<div class="grp-lbl adv">&#9971; Advanced</div>';adv.forEach(function(p){h+=dashCard(p);});}
+  if(dev.length){h+='<div class="grp-lbl dev">&#9971; Developing</div>';dev.forEach(function(p){h+=dashCard(p);});}
+  if(!roster.length) h+='<div class="no-players">No players yet.<br>Add them in Coach Setup.</div>';
+  document.getElementById('dashScreen').innerHTML=h;
+}
+
+</script>
+</body>
+</html>
