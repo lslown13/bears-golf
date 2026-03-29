@@ -103,8 +103,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--turf);min-height:100vh;co
 .cbtn:disabled{opacity:.3;cursor:default}.cbtn.done-btn{background:var(--complete)!important;color:#fff}
 .cn-wrap{padding:0 14px 11px}
 .cn-ey{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:5px}
-.cn-box{background:rgba(0,0,0,.04);border:1px solid var(--card-border);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink2);line-height:1.6}
-.cn-box.empty{color:var(--muted);font-style:italic}
+.cn-box{background:#fff;border:1.5px solid var(--card-border);border-radius:10px;padding:13px 14px;font-size:13px;color:var(--ink);line-height:1.8;white-space:pre-wrap;word-break:break-word}
+.cn-box.empty{color:var(--muted);font-style:italic;background:rgba(0,0,0,.04)}
 .finish{background:var(--grass);border-radius:20px;padding:20px;margin-top:8px}
 .finish-top{text-align:center;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:14px}
 .finish-logo{width:64px;height:64px;object-fit:contain;margin-bottom:6px}
@@ -567,11 +567,12 @@ function stCard(st,idx,isActive,isDone,isLocked,pc) {
       +'<button class="rbtn r-easy'+(st.rating==='easy'?' sel':'')+'" onclick="setRating('+idx+',\'easy\')"><span class="rem">&#128522;</span>Easy</button>'
       +'</div></div>';
   }
-  var canC = st.noBalls || hc>=st.balls;
-  var bl = isDone ? '&#10003; Completed' : (canC ? 'Mark Station Done &#10003;' : 'Hit all '+st.balls+' balls to continue');
+  var canC = (st.noBalls || hc>=st.balls) && !!st.rating;
+  var ratingMsg = (st.noBalls || hc>=st.balls) && !st.rating ? 'Rate this station to continue' : null;
+  var bl = isDone ? '✓ Completed' : (canC ? 'Mark Station Done ✓' : 'Hit all '+st.balls+' balls to continue');
   return '<div class="sc'+(isDone?' sc-done':'')+(isLocked?' locked':'')+'" id="sc'+idx+'">'
     +'<div class="sch" onclick="togCard('+idx+')">'
-    +'<div class="snb" style="background:'+(isDone?'var(--complete)':pc)+'">'+(isDone?'&#10003;':st.n)+'</div>'
+    +'<div class="snb" style="background:'+(isDone?'var(--complete)':pc)+'">'+(isDone?'✓':st.n)+'</div>'
     +'<div style="flex:1"><div class="sc-title">'+st.title+'</div>'
     +'<div class="sc-sub">'+(st.balls===0?'Drill only':st.balls+' balls')+' - '+st.tags.slice(0,2).join(' - ')+'</div></div>'
     +'<div class="sc-chk">'+(isDone?'&#9989;':isActive?'&#9660;':'&#9654;')+'</div></div>'
@@ -602,18 +603,29 @@ function hitBall(si,bi) {
     var el=document.getElementById('bl'+si+'_'+b);
     if(el){el.classList.toggle('hit',b<newHc);el.style.background=b<newHc?pc:'';el.style.borderColor=b<newHc?'transparent':'';}
   }
-  if(newHc>=st.balls){var btn=document.querySelector('#sc'+si+' .cbtn');if(btn){btn.removeAttribute('disabled');btn.textContent='Mark Station Done &#10003;';}}
+  if(newHc>=st.balls){var btn=document.querySelector('#sc'+si+' .cbtn');if(btn){btn.removeAttribute('disabled');btn.textContent='Mark Station Done ✓';}}
   updHdr();
 }
 
 function setRating(si,r) {
-  sessions[curPlayer.id].sts[si].rating=r;
+  var sd=sessions[curPlayer.id];
+  sd.sts[si].rating=r;
   fbSaveSession(curPlayer.id);
   localStorage.setItem('bg_sessions', JSON.stringify(sessions));
   document.querySelectorAll('#sc'+si+' .rbtn').forEach(function(b){
     b.classList.remove('sel');
     if((r==='hard'&&b.classList.contains('r-hard'))||(r==='mid'&&b.classList.contains('r-mid'))||(r==='easy'&&b.classList.contains('r-easy'))) b.classList.add('sel');
   });
+  // Enable Mark Done button if all balls are also hit
+  var st=sd.sts[si];
+  var hc=sd.bh[si]||0;
+  var allHit=st.noBalls||hc>=st.balls;
+  var btn=document.querySelector('#sc'+si+' .cbtn');
+  if(btn&&!st.done){
+    if(allHit&&r){btn.removeAttribute('disabled');btn.textContent='Mark Station Done ✓';}
+    else if(!allHit){btn.setAttribute('disabled','');btn.textContent='Hit all '+st.balls+' balls to continue';}
+    else{btn.setAttribute('disabled','');btn.textContent='Rate this station to continue';}
+  }
 }
 
 function completeStation(si) {
@@ -797,7 +809,7 @@ function dashCard(p) {
     var rl=s.rating==='hard'?'Hard':s.rating==='mid'?'So-so':s.rating==='easy'?'Easy':'--';
     var bh=sd.bh?sd.bh[i]||0:0;
     var bg=s.done?'background:var(--complete);color:#fff':'background:'+color+';color:var(--ink)';
-    return '<div class="csr"><div class="csn" style="'+bg+'">'+(s.done?'&#10003;':s.n)+'</div>'
+    return '<div class="csr"><div class="csn" style="'+bg+'">'+(s.done?'✓':s.n)+'</div>'
       +'<div class="csname">'+s.title.split('--')[0].split('(')[0].trim()+'</div>'
       +'<span class="csballs">'+(s.balls===0?'drill':bh+'/'+s.balls)+'</span>'
       +'<span class="rp '+rc+'">'+rl+'</span></div>';
