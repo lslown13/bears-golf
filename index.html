@@ -589,7 +589,7 @@ function stCard(st,idx,isActive,isDone,isLocked,pc) {
   var allBalls = st.noBalls || hc>=st.balls;
   var hasRating = !!st.rating;
   var canC = allBalls && hasRating;
-  var bl = isDone ? '&#10003; Completed' : canC ? 'Mark Station Done &#10003;' : !allBalls ? 'Hit all '+st.balls+' balls to continue' : 'Rate this station to continue';
+  var bl = isDone ? '\u2713 Completed' : canC ? 'Mark Station Done \u2713' : !allBalls ? 'Hit all '+st.balls+' balls to continue' : 'Rate this station to continue';
   return '<div class="sc'+(isDone?' sc-done':'')+(isLocked?' locked':'')+'" id="sc'+idx+'">'
     +'<div class="sch" onclick="togCard('+idx+')">'
     +'<div class="snb" style="background:'+(isDone?'var(--complete)':pc)+'">'+(isDone?'&#10003;':st.n)+'</div>'
