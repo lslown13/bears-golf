@@ -487,7 +487,7 @@ function openPlayer(id) {
 function updHdr() {
   if (!curPlayer) return;
   var sd = sessions[curPlayer.id];
-  if (!sd) return;
+  if (!sd || !sd.sts) return;
   var tot = sd.sts.reduce(function(a,s){return a+s.balls;},0);
   var hit = sd.bh.reduce(function(a,b){return a+b;},0);
   var dn = sd.sts.filter(function(s){return s.done;}).length;
@@ -497,7 +497,10 @@ function updHdr() {
 }
 
 function renderSess() {
-  var p = curPlayer, sd = sessions[p.id];
+  var p = curPlayer;
+  if (!p) return;
+  var sd = sessions[p.id];
+  if (!sd || !sd.sts) { goBack(); return; }
   var tot = sd.sts.reduce(function(a,s){return a+s.balls;},0);
   var hit = sd.bh.reduce(function(a,b){return a+b;},0);
   var pc = p.plan==='adv' ? 'var(--adv)' : 'var(--dev)';
@@ -553,7 +556,9 @@ function stCard(st,idx,isActive,isDone,isLocked,pc) {
     cn = '<div class="cn-wrap"><div class="cn-ey">&#128203; Coach instructions</div>'
       +'<div class="cn-box'+(sv?'':' empty')+'">'+(sv||'No instructions yet - check with your coach.')+'</div></div>';
   }
+  if (!curPlayer) return '';
   var sd = sessions[curPlayer.id];
+  if (!sd || !sd.bh) return '';
   var hc = sd.bh[idx]||0;
   var bh = '';
   if (!st.noBalls && st.balls>0) {
