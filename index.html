@@ -373,9 +373,9 @@ function pinKey(d) {
         pinBuf = ''; pinDest = '';
         if (dest === 'setup') { openSetup(); }
         else if (dest === 'dash') { openDash(); }
-        else { alert('PIN correct but dest unknown: ' + dest); }
+        
       } else {
-        document.getElementById('pinErr').textContent = 'Wrong PIN. Entered: ' + pinBuf + ' Expected: ' + PIN;
+        document.getElementById('pinErr').textContent = 'Incorrect PIN — try again';
         pinBuf = ''; updDots();
       }
     }, 200);
@@ -767,10 +767,21 @@ function renderPlayerScreen() {
 
 // openSetup renders from current (already synced) data
 function openSetup() {
-  document.getElementById('cm-snote').value = cfg.sessionNote||'';
-  document.getElementById('cm-cnote').value = cfg.courseNote||'';
-  buildPeRows(); buildBallRows();
   showOverlay('setupOverlay');
+  document.getElementById('peRows').innerHTML = '<div style="padding:10px;font-size:13px;color:var(--muted)">Loading...</div>';
+  function doRender() {
+    document.getElementById('cm-snote').value = cfg.sessionNote||'';
+    document.getElementById('cm-cnote').value = cfg.courseNote||'';
+    buildPeRows(); buildBallRows();
+  }
+  if (fbReady) {
+    doRender();
+  } else {
+    var t = setInterval(function() {
+      if (fbReady) { clearInterval(t); doRender(); }
+    }, 100);
+    setTimeout(function() { clearInterval(t); doRender(); }, 4000);
+  }
 }
 
 // Live dashboard with real-time listener
