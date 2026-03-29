@@ -371,10 +371,11 @@ function pinKey(d) {
         hideOverlay('pinOverlay');
         var dest = pinDest;
         pinBuf = ''; pinDest = '';
-        if (dest === 'setup') openSetup();
-        else if (dest === 'dash') openDash();
+        if (dest === 'setup') { openSetup(); }
+        else if (dest === 'dash') { openDash(); }
+        else { alert('PIN correct but dest unknown: ' + dest); }
       } else {
-        document.getElementById('pinErr').textContent = 'Incorrect PIN — try again';
+        document.getElementById('pinErr').textContent = 'Wrong PIN. Entered: ' + pinBuf + ' Expected: ' + PIN;
         pinBuf = ''; updDots();
       }
     }, 200);
