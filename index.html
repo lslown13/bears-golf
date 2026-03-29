@@ -622,7 +622,7 @@ function hitBall(si,bi) {
     var el=document.getElementById('bl'+si+'_'+b);
     if(el){el.classList.toggle('hit',b<newHc);el.style.background=b<newHc?pc:'';el.style.borderColor=b<newHc?'transparent':'';}
   }
-  if(newHc>=st.balls){var btn=document.querySelector('#sc'+si+' .cbtn');if(btn){btn.removeAttribute('disabled');btn.textContent='Mark Station Done ✓';}}
+  if(newHc>=st.balls){var btn=document.querySelector('#sc'+si+' .cbtn');if(btn){if(st.rating){btn.removeAttribute('disabled');btn.textContent='Mark Station Done ✓';}else{btn.setAttribute('disabled','');btn.textContent='Rate this station to continue';}}}
   updHdr();
 }
 
