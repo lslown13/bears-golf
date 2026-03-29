@@ -456,7 +456,7 @@ function goSelect() {
 function renderSelect() {
   var adv = roster.filter(function(p){return p.plan==='adv';});
   var dev = roster.filter(function(p){return p.plan==='dev';});
-  var h = '<div class="sel-title">Select Your Name</div><div class="sel-sub">Tap your name to open your session</div>';
+  var h = '<button class="back-btn" onclick="showScreen(\'welcomeScreen\')">&#8592; Home</button>'     +'<div class="sel-title">Select Your Name</div><div class="sel-sub">Tap your name to open your session</div>';
   if (adv.length) { h += '<div class="grp-lbl adv">&#9971; Advanced Plan</div>'; adv.forEach(function(p){h+=pBtn(p);}); }
   if (dev.length) { h += '<div class="grp-lbl dev">&#9971; Developing Plan</div>'; dev.forEach(function(p){h+=pBtn(p);}); }
   if (!roster.length) h = '<div class="no-players">No players set up yet.<br>Ask your coach to add players<br>in Coach Setup.</div>';
