@@ -345,22 +345,16 @@ try {
   });
   FB = firebase.database();
   // Keep config in sync
-  FB.ref('config').on('value', function(snap) {
+  FB.ref('config').once('value', function(snap) {
     if (snap.exists()) {
       var d = snap.val();
-      if (d.roster) { roster = d.roster; localStorage.setItem('bg_roster', JSON.stringify(roster)); }
+      if (d.roster && d.roster.length) { roster = d.roster; localStorage.setItem('bg_roster', JSON.stringify(roster)); }
       if (d.coachCfg) { cfg = Object.assign(cfg, d.coachCfg); localStorage.setItem('bg_cfg', JSON.stringify(cfg)); }
     }
   });
   // Keep sessions in sync
-  FB.ref('sessions').on('value', function(snap) {
-    var incoming = snap.exists() ? (snap.val() || {}) : {};
-    // Merge incoming - don't overwrite current player's active session
-    if (curPlayer && sessions[curPlayer.id]) {
-      incoming[curPlayer.id] = sessions[curPlayer.id];
-    }
-    sessions = incoming;
-    localStorage.setItem('bg_sessions', JSON.stringify(sessions));
+  FB.ref('sessions').once('value', function(snap) {
+    if (snap.exists()) { sessions = snap.val() || {}; localStorage.setItem('bg_sessions', JSON.stringify(sessions)); }
   });
 } catch(e) {
   console.warn('Firebase unavailable:', e);
